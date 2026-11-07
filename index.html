@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1930">
+  <meta name="description" content="Controle de entradas, gastos, economia, contas fixas e metas. Funciona gratuitamente no GitHub Pages.">
+  <title>Meu Controle Financeiro | Dev Kayko</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+      <a class="brand" href="#painel" aria-label="Ir para o painel">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3"/><path d="M3 9.5h18M16 14.2h2.8"/></svg></span>
+        <span><strong>Meu Controle</strong><small>Financeiro pessoal</small></span>
+      </a>
+      <p class="side-section">MENU PRINCIPAL</p>
+      <nav class="nav-links" id="navLinks">
+        <button class="nav-link is-active" data-view="painel" type="button"><span class="nav-icon">▦</span> Visão geral</button>
+        <button class="nav-link" data-view="lancamentos" type="button"><span class="nav-icon">⇄</span> Lançamentos</button>
+        <button class="nav-link" data-view="orcamento" type="button"><span class="nav-icon">◫</span> Orçamento</button>
+        <button class="nav-link" data-view="contas" type="button"><span class="nav-icon">▤</span> Contas fixas</button>
+        <button class="nav-link" data-view="metas" type="button"><span class="nav-icon">◎</span> Minhas metas</button>
+        <button class="nav-link" data-view="cofrinhos" type="button"><span class="nav-icon">▦</span> Cofrinhos e Woodbox</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="aside-note"><span class="safe-indicator"></span><span><strong>Dados neste dispositivo</strong><small>Salvamento automático no navegador. Faça backups periódicos.</small></span></div>
+        <button type="button" class="nav-link secondary" data-view="ajuda"><span class="nav-icon">?</span> Como usar</button>
+        <div class="sidebar-credit">Feito por <a href="https://www.instagram.com/alien_okyak/" target="_blank" rel="noopener noreferrer" title="Instagram de Dev Kayko"><strong>Dev Kayko</strong></a></div>
+      </div>
+    </aside>
+    <div class="mobile-shade" id="mobileShade" hidden></div>
+    <div class="app-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="mobileMenu" class="icon-button menu-button" type="button" aria-label="Abrir menu" aria-expanded="false">☰</button>
+          <div class="breadcrumb">FINANÇAS PESSOAIS <span>/</span> <strong id="currentCrumb">Visão geral</strong></div>
+        </div>
+        <div class="topbar-right">
+          <span class="topbar-storage">◉ Salvo no navegador</span>
+          <div class="topbar-backup-actions" aria-label="Ações de backup">
+            <button class="button button-quick-backup button-small" id="dailyBackupButton" type="button" title="Baixar uma cópia completa dos dados de hoje" aria-label="Salvar backup completo do dia">▣ <span class="backup-button-label">Backup do dia</span></button>
+            <button class="button button-transfer-top button-small" id="backupCenterButton" type="button" aria-haspopup="dialog" aria-controls="backupOverlay" title="Backup e transferência">↗ <span class="transfer-button-label">Backup e transferência</span><span class="transfer-short">Transferir</span></button>
+          </div>
+          <button class="button button-dark button-small top-add-button" type="button" data-action="add-transaction">+ <span>Novo lançamento</span></button>
+        </div>
+      </header>
+      <main class="main-content">
+        <section class="page-heading">
+          <div><div class="eyebrow">ORGANIZE SEU DINHEIRO</div><h1 id="pageTitle">Seu dinheiro, sob controle.</h1><p id="pageSubtitle">Acompanhe suas receitas, gastos e quanto você está conseguindo guardar.</p></div>
+          <div class="period-picker"><label for="monthSelect">Mês</label><select id="monthSelect" aria-label="Selecionar mês"></select><label for="yearSelect">Ano</label><input id="yearSelect" aria-label="Selecionar ano" type="number" min="2000" max="2100" step="1"></div>
+        </section>
+        <section id="view-painel" class="view active" aria-label="Visão geral">
+          <div class="summary-grid" id="summaryGrid"></div>
+          <div class="mini-stats dashboard-mini" id="dashboardMini"></div>
+          <div class="insights-grid">
+            <section class="panel panel-wide"><div class="panel-heading"><div><h2>Movimentação do ano</h2><p>Entradas, gastos e valores guardados por mês</p></div><span class="subtle-label" id="chartYear"></span></div><div id="annualChart" class="bar-chart" role="img" aria-label="Comparação mensal de entradas, gastos e economia"></div><div class="chart-legend"><span><i class="legend-dot income"></i> Entradas</span><span><i class="legend-dot expense"></i> Gastos</span><span><i class="legend-dot saving"></i> Guardado</span></div></section>
+            <section class="panel"><div class="panel-heading"><div><h2>Para onde foi seu dinheiro?</h2><p>Gastos por categoria no mês</p></div></div><div id="categoryChart"></div></section>
+          </div>
+          <div class="insights-grid bottom-insights"><section class="panel"><div class="panel-heading"><div><h2>Últimos lançamentos</h2><p>Movimentações do mês selecionado</p></div><button type="button" class="text-button" data-view="lancamentos">Ver todos →</button></div><div id="recentTransactions"></div></section><section class="panel"><div class="panel-heading"><div><h2>Próximas contas</h2><p>Previsões recorrentes, não gastos pagos</p></div><button type="button" class="text-button" data-view="contas">Gerenciar →</button></div><div id="upcomingBills"></div></section></div>
+          <div class="panel piggy-dashboard"><div><span class="piggy-symbol" aria-hidden="true">🐷</span><div><h2>Seus cofrinhos</h2><p>Guarde dinheiro no seu ritmo ou complete o Desafio Woodbox, marcando depósitos.</p></div></div><div id="dashboardCoffers"></div><button type="button" class="button button-outline" data-view="cofrinhos">Abrir cofrinhos →</button></div>
+        </section>
+        <section id="view-lancamentos" class="view" aria-label="Lançamentos">
+          <div class="section-toolbar"><div><h2>Todas as movimentações</h2><p>Entradas, saídas e o dinheiro separado para guardar.</p></div><button class="button button-primary" type="button" data-action="add-transaction">+ Adicionar lançamento</button></div>
+          <div class="toolbar-filters"><label class="search-control"><span>⌕</span><input type="search" id="transactionSearch" placeholder="Buscar descrição, categoria ou forma de pagamento" aria-label="Buscar lançamentos"></label><select id="transactionTypeFilter" aria-label="Filtrar tipo"><option value="all">Todos os tipos</option><option value="Entrada">Entradas</option><option value="Gasto">Gastos</option><option value="Reserva">Guardado</option><option value="Resgate">Resgates</option></select><label class="check-row"><input type="checkbox" id="allMonthsToggle"> Mostrar todos os meses</label></div>
+          <div class="panel table-panel"><div class="table-scroll"><table class="data-table" id="transactionsTable"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Forma / Meta</th><th class="right">Valor</th><th class="right">Ações</th></tr></thead><tbody id="transactionsBody"></tbody></table></div><div class="table-footer" id="transactionsFooter"></div></div>
+        </section>
+        <section id="view-orcamento" class="view" aria-label="Orçamento">
+          <div class="section-toolbar"><div><h2>Limites de gastos</h2><p>Defina quanto pretende gastar em cada categoria no mês escolhido.</p></div><button type="button" class="button button-outline" id="copyPreviousBudget">↪ Copiar orçamento do mês anterior</button></div>
+          <div class="budget-overview" id="budgetOverview"></div><div class="panel"><div class="panel-heading"><div><h2>Orçamento por categoria</h2><p>Edite o teto mensal nos campos abaixo. O valor gasto é calculado pelos lançamentos.</p></div></div><div id="budgetRows" class="budget-rows"></div></div>
+        </section>
+        <section id="view-contas" class="view" aria-label="Contas fixas"><div class="section-toolbar"><div><h2>Contas fixas e recorrentes</h2><p>Planeje pagamentos mensais. Uma previsão só vira gasto quando você registrá-la.</p></div><button class="button button-primary" type="button" data-action="add-bill">+ Adicionar conta</button></div><div class="mini-stats" id="billsStats"></div><div class="panel table-panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Conta</th><th>Categoria</th><th>Vencimento</th><th class="right">Valor previsto</th><th>Status</th><th class="right">Ações</th></tr></thead><tbody id="billsBody"></tbody></table></div></div></section>
+        <section id="view-metas" class="view" aria-label="Metas"><div class="section-toolbar"><div><h2>Objetivos de economia</h2><p>Veja suas reservas crescerem. O dinheiro guardado não é contado como gasto.</p></div><button class="button button-primary" type="button" data-action="add-goal">+ Nova meta</button></div><div class="mini-stats" id="goalsStats"></div><div class="goals-grid" id="goalsGrid"></div></section>
+        <section id="view-cofrinhos" class="view" aria-label="Cofrinhos e Desafio Woodbox">
+          <div class="section-toolbar"><div><h2>Meus cofrinhos</h2><p>Separe suas economias e acompanhe cada depósito, sem contar duas vezes.</p></div><button class="button button-primary" type="button" data-action="add-coffer">+ Criar cofrinho</button></div>
+          <div class="mini-stats" id="cofferStats"></div>
+          <div class="coffer-grid" id="cofferList"></div>
+          <div id="cofferDetails"></div>
+        </section>
+        <section id="view-ajuda" class="view" aria-label="Como usar">
+          <div class="panel help-panel"><div class="panel-heading"><div><h2>Como usar o controle financeiro</h2><p>Comece pelos lançamentos e acompanhe seus resultados no painel.</p></div></div><div class="help-steps"><article><span>01</span><div><h3>Selecione o mês e o ano</h3><p>Use o seletor no topo para visualizar um período específico. Seus lançamentos de outros meses ficam preservados.</p></div></article><article><span>02</span><div><h3>Cadastre seu dinheiro</h3><p>Use <strong>Entrada</strong> para salários e dinheiro recebido, <strong>Gasto</strong> para compras e contas pagas e <strong>Reserva</strong> somente quando separar dinheiro para economizar.</p></div></article><article><span>03</span><div><h3>Estabeleça limites</h3><p>Em Orçamento, informe o valor máximo que deseja gastar em cada categoria naquele mês. Pode copiar os valores do mês anterior.</p></div></article><article><span>04</span><div><h3>Planeje contas fixas</h3><p>Cadastre aluguel, internet, energia e outras previsões. Elas não diminuem seu saldo até você lançar o pagamento real como Gasto.</p></div></article><article><span>05</span><div><h3>Defina metas</h3><p>Crie metas e vincule lançamentos do tipo Reserva a cada uma. O campo "Já tinha guardado" é um valor inicial, não uma receita do mês.</p></div></article><article><span>06</span><div><h3>Cofrinhos e Desafio Woodbox</h3><p>Crie um cofrinho livre para depositar ou resgatar dinheiro. No Woodbox, escolha o modelo e marque cada casa somente depois de guardar o valor indicado. Os depósitos entram automaticamente como Reservas nos lançamentos; não lance o mesmo depósito uma segunda vez.</p></div></article><article><span>07</span><div><h3>Faça cópias de segurança</h3><p>Os dados são salvos <strong>somente neste navegador</strong> e dispositivo. Use o botão “Backup do dia” no topo para guardar uma cópia; use “Backup e transferência” para compartilhar ou importar esse arquivo em outro navegador.</p></div></article></div></div>
+          <div class="panel backup-panel"><div><h2>Backup e transferência</h2><p>Exporte seus dados, restaure um backup ou gere um CSV compatível com Excel.</p></div><div class="backup-actions"><button type="button" class="button button-primary" id="backupExport">↓ Exportar backup JSON</button><button type="button" class="button button-outline" id="backupImport">↑ Importar backup JSON</button><button type="button" class="button button-outline" id="csvExport">↓ Lançamentos CSV</button><input type="file" id="backupFile" accept="application/json,.json" hidden></div><p class="warning-note"><strong>Atenção:</strong> Cofrinhos e Woodbox são controles virtuais, não guardam nem transferem dinheiro. <strong>O saldo depende dos valores que você realmente separou.</strong>  GitHub Pages não é banco de dados. Não há login, sincronização entre aparelhos nem cópia na nuvem. Não publique seus backups privados no repositório público.</p></div>
+          
+        </section>
+        <footer class="footer-credits">© 2026 Meu Controle Financeiro | Desenvolvido por <a href="https://www.instagram.com/alien_okyak/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram de Dev Kayko"><strong>Dev Kayko</strong></a></footer>
+      </main>
+    </div>
+  </div>
+  <div class="modal-overlay" id="modalOverlay" hidden><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-heading"><div><p class="eyebrow" id="dialogEyebrow">NOVO REGISTRO</p><h2 id="dialogTitle">Novo lançamento</h2></div><button type="button" class="icon-button close-button" id="closeModal" aria-label="Fechar">✕</button></div><form id="entityForm" novalidate><div id="formFields" class="form-grid"></div><div class="dialog-footer"><button type="button" class="button button-outline" id="cancelModal">Cancelar</button><button class="button button-primary" type="submit" id="saveEntity">Salvar</button></div></form></div></div>
+  <!-- Central acessível pelo botão do topo: backup rápido, transferência e restauração. -->
+  <div class="backup-overlay" id="backupOverlay" hidden>
+    <div class="backup-dialog" role="dialog" aria-modal="true" aria-labelledby="backupTitle" aria-describedby="backupDescription" tabindex="-1">
+      <div class="backup-dialog-header">
+        <div><p class="eyebrow">PROTEJA SEUS REGISTROS</p><h2 id="backupTitle">Backup e transferência</h2><p id="backupDescription">Salve uma cópia dos dados do dia e leve seus registros para outro dispositivo.</p></div>
+        <button class="icon-button" type="button" id="backupCloseButton" aria-label="Fechar janela de backup">✕</button>
+      </div>
+      <div class="backup-feature-grid">
+        <button class="backup-feature primary" type="button" id="backupSaveNow"><span class="backup-feature-icon">↓</span><span><strong>Salvar backup do dia</strong><small>Baixar arquivo JSON com todos os dados, metas e Woodbox.</small></span></button>
+        <button class="backup-feature" type="button" id="backupShareNow"><span class="backup-feature-icon">↗</span><span><strong>Transferir / compartilhar</strong><small>Enviar o arquivo por compartilhamento do aparelho, quando disponível.</small></span></button>
+        <button class="backup-feature" type="button" id="backupRestoreNow"><span class="backup-feature-icon">↑</span><span><strong>Restaurar backup</strong><small>Escolher arquivo JSON para importar em outro navegador.</small></span></button>
+        <button class="backup-feature" type="button" id="backupCsvNow"><span class="backup-feature-icon">▤</span><span><strong>Exportar para Excel</strong><small>Baixar lançamentos em CSV, para abrir no Excel.</small></span></button>
+      </div>
+      <div class="backup-guide"><h3>Como transferir entre celular e computador</h3><p><strong>1.</strong> Baixe o backup do dia. <strong>2.</strong> Envie o arquivo <code>.json</code> por um meio privado. <strong>3.</strong> No outro aparelho, abra o site e selecione <strong>Restaurar backup</strong>.</p></div>
+      <p class="backup-privacy"><strong>Atenção:</strong> restaurar substitui todos os dados deste navegador. Os arquivos contêm informações financeiras pessoais; não publique seu backup no repositório GitHub. Este site não movimenta dinheiro nem sincroniza automaticamente entre aparelhos.</p>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
