@@ -166,3 +166,7 @@ Em **Apps, pontos e moedas → Adicionar app ou saldo → Pontos / recompensas**
 **Onde editar:** `app.js`, procure por `pointReferencePoints`, `pointReferenceBRL`, `refreshWalletPointPreview` e `valueWalletInBRL`. A impressão deste dado fica em `assets/js/relatorio-impressao.js`.
 
 Os cadastros antigos de pontos continuam com seu modo de cálculo anterior. O backup JSON inclui as novas informações.
+
+### Impressão: valor total dos pontos
+
+Em `assets/js/relatorio-impressao.js`, edite a função `pointTotal(w)` para modificar as regras de cálculo do total de pontos, ou a seção `Apps, pontos e criptomoedas` para alterar as colunas impressas. A regra é individual de cada aplicativo e utiliza os campos salvos pelo cadastro.

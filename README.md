@@ -269,3 +269,7 @@ Inclui resumo do mês e histórico, lançamentos de todos os meses, orçamentos,
 ## Equivalência personalizada de pontos (novidade)
 
 Em **Apps, pontos e moedas**, é possível definir manualmente **1 ponto = R$ 1,00** ou **3.615 pontos = R$ 15,00**, assim como outras relações. Selecione **Equivalência personalizada em R$** e preencha a quantidade de pontos de referência e o correspondente valor em reais. A prévia e o cartão mostram o total estimado. Não há troca real de pontos nem transferência de saldo. Modos anteriores de avaliação são preservados.
+
+### Relatório de impressão: valor total dos pontos
+
+Na seção **Apps, pontos e criptomoedas**, a coluna **Valor total estimado dos pontos** apresenta o total calculado de cada app, usando sua regra manual cadastrada. Exemplo: 37.575 pontos com equivalência de 3.615 pontos = R$ 15,00 resultam em **R$ 155,91** (arredondado a centavos). Se a regra estiver em US$, o total será exibido em US$; sem taxa cadastrada, aparece **Não definido**. Os valores não são adicionados ao saldo financeiro. Para alterar a regra, edite o app na seção de saldos, não o relatório.

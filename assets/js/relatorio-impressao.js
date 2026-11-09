@@ -14,6 +14,31 @@ const sum=(items,t)=>items.reduce((v,x)=>v+(x.type===t?Number(x.amount)||0:0),0)
 const totals=items=>{const income=sum(items,'Entrada'),expense=sum(items,'Gasto'),reserves=sum(items,'Reserva'),withdraw=sum(items,'Resgate');return {income,expense,reserves,withdraw,saved:reserves-withdraw,available:income-expense-reserves+withdraw}};
 const cofferBalance=(c,tx)=>Number(c.initial||0)+tx.filter(t=>t.cofferId===c.id).reduce((v,t)=>v+(t.type==='Reserva'?Number(t.amount)||0:t.type==='Resgate'?-(Number(t.amount)||0):0),0);
 const kpi=(title,value)=>'<div class="kpi"><small>'+esc(title)+'</small><strong>'+esc(value)+'</strong></div>';
+// TOTAL DE PONTOS NO RELATÓRIO — altere aqui se acrescentar regras novas de conversão.
+// O total é sempre uma estimativa manual, nunca um saldo disponível ou resgatado.
+const pointTotal=w=>{
+ if(w.kind!=='points')return '—';
+ const balance=Number(w.balance);
+ if(!Number.isFinite(balance)||balance<0)return '—';
+ const mode=w.pointValueMode||'legacy';
+ let value, currency;
+ if(mode==='ratioBRL'){
+  const points=Number(w.pointReferencePoints), reais=Number(w.pointReferenceBRL);
+  if(!(points>0&&reais>0))return 'Não definido';
+  value=balance*reais/points;currency='BRL';
+ }else if(mode==='BRL'||mode==='USD'){
+  const unit=Number(w.pointUnitValue);
+  if(!(unit>0))return 'Não definido';
+  value=balance*unit;currency=mode;
+ }else{
+  const pointsPerUsd=Number(w.pointsPerUsd);
+  if(!(pointsPerUsd>0))return 'Não definido';
+  value=balance/pointsPerUsd;currency='USD';
+ }
+ if(!Number.isFinite(value))return 'Não definido';
+ return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(value);
+};
+
 function build(db){
  const tx=Array.isArray(db.transactions)?db.transactions:[];
  const bills=Array.isArray(db.bills)?db.bills:[];
@@ -35,7 +60,7 @@ function build(db){
  sections+=section('Contas fixas e pagamentos',table(['Conta','Categoria','Dia','Valor','Situação','Meses marcados pagos'],bills.map(b=>row(b.name,b.category,b.day,brl(b.amount),b.active===false?'Pausada':'Ativa',(b.paidMonths||[]).map(period).join(', ')||'Nenhum'))),'Uma conta marcada como paga não gera automaticamente lançamento de gasto. Os meses pagos são exibidos separadamente.');
  sections+=section('Metas de economia',table(['Meta','Objetivo','Saldo inicial','Reservas vinculadas','Total estimado'],goals.map(g=>{const r=tx.filter(t=>t.goalId===g.id&&t.type==='Reserva').reduce((s,t)=>s+(Number(t.amount)||0),0);return row(g.name,brl(g.target),brl(g.initial),brl(r),brl(Number(g.initial||0)+r))})));
  sections+=section('Cofrinhos e Woodbox',table(['Cofrinho','Modalidade','Meta cadastrada','Saldo inicial','Saldo calculado'],coffers.map(c=>row(c.name,c.mode==='woodbox'?'Woodbox':'Livre',c.mode==='woodbox'?'Conforme cartela':brl(c.target),brl(c.initial),brl(cofferBalance(c,tx))))),'Saldos estimados a partir dos registros; rendimento simulado de CDI/Tesouro não entra no saldo.');
- sections+=section('Apps, pontos e criptomoedas',table(['Aplicativo','Tipo','Quantidade / saldo','Moeda','Valor de 1 ponto ou regra'],wallets.map(w=>row(w.app,w.kind==='points'?'Pontos':w.kind==='crypto'?'Criptomoeda':'Saldo',num(w.balance),w.currency,w.kind==='points'?(w.pointValueMode==='ratioBRL'?num(w.pointReferencePoints)+' pontos = R$ '+num(w.pointReferenceBRL):w.pointValueMode==='BRL'?'R$ '+num(w.pointUnitValue)+' por ponto':w.pointValueMode==='USD'?'US$ '+num(w.pointUnitValue)+' por ponto':num(w.pointsPerUsd)+' pontos por US$ 1'):'—'))),'Valores externos são registros manuais. Não representam saldo bancário nem preços de mercado em tempo real.');
+ sections+=section('Apps, pontos e criptomoedas',table(['Aplicativo','Tipo','Quantidade / saldo','Moeda','Valor de 1 ponto ou regra','Valor total estimado dos pontos'],wallets.map(w=>row(w.app,w.kind==='points'?'Pontos':w.kind==='crypto'?'Criptomoeda':'Saldo',num(w.balance),w.currency,w.kind==='points'?(w.pointValueMode==='ratioBRL'?num(w.pointReferencePoints)+' pontos = '+brl(w.pointReferenceBRL):w.pointValueMode==='BRL'?brl(w.pointUnitValue)+' por ponto':w.pointValueMode==='USD'?'US$ '+num(w.pointUnitValue)+' por ponto':num(w.pointsPerUsd)+' pontos por US$ 1'):'—',pointTotal(w)))),'O valor total dos pontos é calculado com a regra manual de cada aplicativo. Para regras em dólares, aparece o total em US$ (sem conversão automática para R$). Estes valores externos não representam dinheiro já resgatado, saldo bancário ou preços de mercado em tempo real.');
  sections+=section('Investimentos e trade',table(['Ativo','Quantidade','Preço de compra','Moeda','Observações'],investments.map(i=>row(i.symbol||i.ticker||i.name||i.asset||'—',num(i.quantity??i.qty),num(i.buyPrice??i.price??i.averagePrice),(i.currency||({'PETR4':'BRL','VALE3':'BRL','ITUB4':'BRL','MGLU3':'BRL','BOVA11':'BRL','IVVB11':'BRL'}[i.symbol]||'USD')),i.notes||''))),'Carteira manual: confira os preços e a moeda no cadastro. Este relatório não atualiza cotações nem garante rendimento.');
  sections+=section('Preferências e observações','<p>Meta de economia mensal: <strong>'+esc(brl(db.settings?.monthlySavingsTarget))+'</strong>. Mês selecionado: '+esc(period(month))+'.</p><p>Relatório gerado localmente no navegador, sem envio dos seus dados para servidores. Os valores refletem somente os registros disponíveis neste navegador no momento da geração.</p>');
  return {html:sections,created};
