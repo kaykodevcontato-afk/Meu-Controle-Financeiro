@@ -121,3 +121,23 @@ Abra `app.js` e procure `03-B. SIMULADOR` para entender as opções de saldo, at
 O texto e a ordem das opções estão em `index.html` no seletor `id="themePalette"`. A lista de valores permitidos e o salvamento ficam em `app.js` (busque por `themePalette`); o botão claro/escuro usa `themeMode`.
 
 Para modificar uma paleta, priorize as variáveis `--ui-bg` (fundo), `--ui-surface` (cartões), `--ui-ink` (títulos), `--ui-body` (textos), `--ui-muted` (textos auxiliares), `--ui-accent` (destaques), `--ui-button` (botões) e `--ui-border` (bordas). Preserve contraste de texto em claro e escuro.
+
+## Investimentos e Trade — como alterar sem mexer no resto
+
+**Menu:** em `index.html`, encontre `data-view="investimentos"`. O conteúdo da nova tela começa em `id="view-investimentos"`.
+
+**Ações, Apple, petróleo, ETFs e criptomoedas:** abra `assets/js/investimentos-trade.js` e edite o array `ATIVOS` no começo do arquivo. Cada item tem: `symbol` (ticker), `name`, `group`, `currency` (BRL/USD), `kind`, `whole` (se só aceita unidade inteira), `url` (cotação), `about` (descrição). `reference`/`referenceDate` são somente exemplos históricos datados, **não preços em tempo real**. Não use referências desatualizadas como preço de execução.
+
+**Cotação automática:** no mesmo JavaScript, procure a função `refreshQuotes()`. Somente os quatro tickers de teste gratuitos da brapi (`PETR4`, `VALE3`, `ITUB4`, `MGLU3`) e as criptomoedas BTC/ETH recebem consultas automáticas. Para outros ativos, mantenha a cotação manual e os links, salvo quando tiver uma API autorizada apropriada. Nunca exponha um token no GitHub Pages.
+
+**Simulador:** em `assets/js/investimentos-trade.js`, edite `simular()` e `renderScenario()`. O percentual informado é **hipotético**, não um rendimento anual/mensal prometido. Se alterar a matemática, atualize os avisos e testes.
+
+**Carteira manual e salvamento:** `normalizeRecords()`, `savePosition()`, `renderPortfolio()`. Integração com `app.js`: `defaultDB()` cria `investments: []`, `normalize()` lê ou restaura a lista (mesmo de backups antigos), `init()` configura o salvamento local. A carteira não movimenta lançamentos nem cofrinhos.
+
+**Cor e contraste dos quatro temas:** altere `assets/css/investimentos-trade.css`, que usa as variáveis `--ui-surface`, `--ui-ink`, `--ui-border`, `--ui-muted`, `--ui-accent` e `--ui-accent-soft`. Evite fixar cores de fundo e texto incompatíveis com modo escuro.
+
+**Referências de sites e corretoras:** a seção `invest-external-list` de `index.html`. Compare sempre custos, elegibilidade e regras diretamente com as instituições.
+
+## Valor manual dos pontos (R$ ou US$)
+
+No arquivo `app.js`, localize `openForm` no bloco `kind==='wallet'` para editar os campos `pointValueMode` e `pointUnitValue`. O cálculo aparece em `valueWalletInBRL`, e a prévia no formulário em `refreshWalletPointPreview`. O modo `legacy` mantém compatibilidade com os registros antigos de pontos por US$ 1. Não inclua essas estimativas como dinheiro recebido.

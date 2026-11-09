@@ -8,6 +8,7 @@
   // Prioridades das contas: assets/js/contas-prioridades.js (cores no CSS correspondente).
   // Simulador de rendimento: assets/js/rendimentos-simulador.js (cores no CSS correspondente).
   // Fontes de câmbio e links: assets/js/cotacoes-fontes.js (CSS em assets/css/).
+  // Investimentos e trade: assets/js/investimentos-trade.js + assets/css/investimentos-trade.css.
   const STORAGE_KEY = 'kayko-controle-financeiro-v1';
   const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const SHORT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -49,7 +50,7 @@
   const uid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const today = () => {const d = new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
   const fmtDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? `${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}` : '—';
-  const defaultDB = () => ({version:1, transactions:[], bills:[], goals:[], coffers:[], wallets:[], customCategories:[], budgets:{}, settings:{month:11,year:2026,monthlySavingsTarget:0,themeMode:'light',themePalette:'current',cryptoQuoteSource:'auto',investmentSimulator:null}});
+  const defaultDB = () => ({version:1, transactions:[], bills:[], goals:[], coffers:[], wallets:[], investments:[], customCategories:[], budgets:{}, settings:{month:11,year:2026,monthlySavingsTarget:0,themeMode:'light',themePalette:'current',cryptoQuoteSource:'auto',investmentSimulator:null,investmentMarket:{usdBrl:0}}});
   let db = defaultDB();
   let view = 'painel';
   let editing = null;
@@ -83,8 +84,9 @@
       const kind=['money','points','crypto'].includes(w.kind)?w.kind:'money';
       const currency=kind==='crypto'&&Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:kind==='money'&&FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL';
       const number = v => typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e12?precise(v):0;
-      return {id:clean(w.id||uid()),app:clean(w.app).slice(0,100),kind,currency,balance:number(w.balance),pointsPerUsd:number(w.pointsPerUsd),manualUsdPrice:number(w.manualUsdPrice)};
+      return {id:clean(w.id||uid()),app:clean(w.app).slice(0,100),kind,currency,balance:number(w.balance),pointsPerUsd:number(w.pointsPerUsd),pointValueMode:['legacy','BRL','USD'].includes(w.pointValueMode)?w.pointValueMode:'legacy',pointUnitValue:number(w.pointUnitValue),manualUsdPrice:number(w.manualUsdPrice)};
     });
+    const investments=window.KaykoInvestimentos.normalizeRecords(candidate.investments);
     const budgets = {};
     for (const key of Object.keys(candidate.budgets).slice(0,1000)) {
       if (/^\d{4}-\d{2}$/.test(key) && candidate.budgets[key] && typeof candidate.budgets[key]==='object') {
@@ -93,7 +95,7 @@
       }
     }
     const settings=candidate.settings||{};
-    return {version:1,transactions,bills,goals,coffers,wallets,customCategories,budgets,settings:{month:clamp(Math.floor(Number(settings.month)||11),1,12),year:clamp(Math.floor(Number(settings.year)||2026),2000,2100),monthlySavingsTarget:amount(settings.monthlySavingsTarget),themeMode:settings.themeMode==='dark'?'dark':'light',themePalette:['current','blue','pink','purple'].includes(settings.themePalette)?settings.themePalette:'current',cryptoQuoteSource:window.KaykoCotacoes.validProvider(settings.cryptoQuoteSource),investmentSimulator:window.KaykoRendimentos.normalize(settings.investmentSimulator)}};
+    return {version:1,transactions,bills,goals,coffers,wallets,investments,customCategories,budgets,settings:{month:clamp(Math.floor(Number(settings.month)||11),1,12),year:clamp(Math.floor(Number(settings.year)||2026),2000,2100),monthlySavingsTarget:amount(settings.monthlySavingsTarget),themeMode:settings.themeMode==='dark'?'dark':'light',themePalette:['current','blue','pink','purple'].includes(settings.themePalette)?settings.themePalette:'current',cryptoQuoteSource:window.KaykoCotacoes.validProvider(settings.cryptoQuoteSource),investmentSimulator:window.KaykoRendimentos.normalize(settings.investmentSimulator),investmentMarket:window.KaykoInvestimentos.normalizeSettings(settings.investmentMarket)}};
   }
   function save() {
     try { localStorage.setItem(STORAGE_KEY,JSON.stringify(db));return true; }
@@ -128,7 +130,7 @@
   function activeGoalIds() {return new Set(db.goals.map(g=>g.id));}
   // ===== 02. MENU, NAVEGAÇÃO E RENDERIZAÇÃO =====
   function render() {
-    const titleMap = {painel:['Seu dinheiro, sob controle.','Acompanhe suas receitas, gastos e quanto você está conseguindo guardar.','Visão geral'],lancamentos:['Registre cada movimentação.','Tudo que entra, sai ou é separado para economizar.','Lançamentos'],orcamento:['Planeje seu orçamento.','Defina limites de gastos e mantenha seu planejamento.','Orçamento'],contas:['Suas contas em dia.','Organize os pagamentos recorrentes sem confundir previsão com gasto.','Contas fixas'],metas:['Um passo de cada vez.','Transforme seus objetivos em metas de economia.','Minhas metas'],cofrinhos:['Seu dinheiro vai ganhar destino.','Cofrinhos livres e desafios Woodbox com cartelas interativas.','Cofrinhos'],carteiras:['Pontos, saldos e criptomoedas.','Organize valores de outros aplicativos e faça conversões de referência.','Apps e moedas'],ajuda:['Aprenda a usar.','Seu guia de uso e as opções para proteger seus dados.','Como usar']};
+    const titleMap = {painel:['Seu dinheiro, sob controle.','Acompanhe suas receitas, gastos e quanto você está conseguindo guardar.','Visão geral'],lancamentos:['Registre cada movimentação.','Tudo que entra, sai ou é separado para economizar.','Lançamentos'],orcamento:['Planeje seu orçamento.','Defina limites de gastos e mantenha seu planejamento.','Orçamento'],contas:['Suas contas em dia.','Organize os pagamentos recorrentes sem confundir previsão com gasto.','Contas fixas'],metas:['Um passo de cada vez.','Transforme seus objetivos em metas de economia.','Minhas metas'],cofrinhos:['Seu dinheiro vai ganhar destino.','Cofrinhos livres e desafios Woodbox com cartelas interativas.','Cofrinhos'],carteiras:['Pontos, saldos e criptomoedas.','Organize valores de outros aplicativos e faça conversões de referência.','Apps e moedas'],investimentos:['Invista com informação.','Compare ativos, simule ganhos e perdas e acompanhe suas posições.','Investimentos e Trade'],ajuda:['Aprenda a usar.','Seu guia de uso e as opções para proteger seus dados.','Como usar']};
     const header=titleMap[view];
     $('#pageTitle').textContent=header[0];$('#pageSubtitle').textContent=header[1];$('#currentCrumb').textContent=header[2];
     $$('.view').forEach(el=>el.classList.toggle('active',el.id===`view-${view}`));
@@ -141,9 +143,10 @@
     else if(view==='metas')renderGoals();
     else if(view==='cofrinhos'){renderCoffers();renderYieldSimulator();}
     else if(view==='carteiras')renderWallets();
+    else if(view==='investimentos')window.KaykoInvestimentos.render();
   }
   function navigate(next) {
-    if(!['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','ajuda'].includes(next))return;
+    if(!['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','investimentos','ajuda'].includes(next))return;
     view=next;
     history.replaceState(null,'',`#${next}`);
     $('#sidebar').classList.remove('open');$('#mobileShade').hidden=true;$('#mobileMenu').setAttribute('aria-expanded','false');
@@ -469,17 +472,24 @@
       ['count','unit'].forEach(x=>$('#form-'+x).addEventListener('input',refresh));
       refresh();
     } else if(kind==='wallet') {
-      const w=found||{app:'',kind:'money',currency:'BRL',balance:0,pointsPerUsd:0,manualUsdPrice:0};
+      const w=found||{app:'',kind:'money',currency:'BRL',balance:0,pointsPerUsd:0,pointValueMode:'legacy',pointUnitValue:0,manualUsdPrice:0};
       $('#dialogTitle').textContent=id?'Editar saldo externo':'Adicionar app ou saldo';
       $('#formFields').innerHTML=field('app','Nome do aplicativo *',input('app','text',w.app,true,'maxlength="100" placeholder="Ex.: aplicativo de recompensas"'),true)
        +field('kind','O que deseja acompanhar?',select('kind',[['money','Saldo em moeda'],['points','Pontos / recompensas'],['crypto','Criptomoeda']],w.kind),true)
        +field('balance','Quantidade ou saldo *',input('balance','number',w.balance,true,'min="0" max="1000000000000" step="any" placeholder="Ex.: 250.5"'))
        +field('currency','Moeda do saldo',select('currency',FIAT_CURRENCIES.map(c=>[c,c]),FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL'))
        +field('crypto','Criptomoeda',select('crypto',Object.keys(CRYPTO_ASSETS).map(c=>[c,`${c} · ${CRYPTO_ASSETS[c][0]}`]),Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:'BTC'))
+       +field('pointValueMode','Como definir o valor dos pontos?',select('pointValueMode',[['legacy','Quantidade de pontos para US$ 1'],['BRL','Valor de 1 ponto em reais (R$)'],['USD','Valor de 1 ponto em dólares (US$)']],w.pointValueMode||'legacy'),true,'Escolha a forma usada pelo aplicativo. O valor é definido manualmente por você.')
+       +field('pointUnitValue','Quanto vale 1 ponto?',input('pointUnitValue','number',w.pointUnitValue||'',false,'min="0" max="1000000000000" step="any" placeholder="Ex.: 0.01"'),true,'Ex.: 1 ponto = R$ 0,01 ou US$ 0,01, conforme a moeda escolhida.')
        +field('pointsPerUsd','Quantos pontos equivalem a US$ 1?',input('pointsPerUsd','number',w.pointsPerUsd||'',false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 1000"'),true,'Exemplo: 1000 pontos = US$ 1. Deixe vazio se o app não informar taxa de troca.')
+       +'<p class="field-help wide" id="walletPointsPreview" aria-live="polite"></p>'
        +field('manualUsdPrice','Cotação manual (US$ por 1 unidade)',input('manualUsdPrice','number',w.manualUsdPrice||'',false,'min="0" max="1000000000000" step="any" placeholder="Opcional"'),true,'Se preenchida, substitui a cotação automática da criptomoeda.');
       const refresh=refreshWalletFields;
       $('#form-kind').addEventListener('change',refresh);
+      $('#form-pointValueMode').addEventListener('change',refresh);
+      $('#form-balance').addEventListener('input',refreshWalletPointPreview);
+      $('#form-pointUnitValue').addEventListener('input',refreshWalletPointPreview);
+      $('#form-pointsPerUsd').addEventListener('input',refreshWalletPointPreview);
       refresh();
     } else if(kind==='category') {
       $('#dialogTitle').textContent=id?'Renomear categoria':'Nova categoria de orçamento';
@@ -497,9 +507,24 @@
     const type=$('#form-kind').value;
     $('#form-currency').closest('.form-field').hidden=type!=='money';
     $('#form-crypto').closest('.form-field').hidden=type!=='crypto';
-    $('#form-pointsPerUsd').closest('.form-field').hidden=type!=='points';
+    $('#form-pointValueMode').closest('.form-field').hidden=type!=='points';
+    const pointMode=$('#form-pointValueMode').value;
+    $('#form-pointsPerUsd').closest('.form-field').hidden=type!=='points'||pointMode!=='legacy';
+    $('#form-pointUnitValue').closest('.form-field').hidden=type!=='points'||pointMode==='legacy';
+    $('#form-pointUnitValue').closest('.form-field').querySelector('label').textContent=pointMode==='BRL'?'Valor de 1 ponto em reais (R$)':'Valor de 1 ponto em dólares (US$)';
     $('#form-manualUsdPrice').closest('.form-field').hidden=type!=='crypto';
     $('#form-balance').closest('.form-field').querySelector('label').textContent=type==='points'?'Quantidade de pontos *':type==='crypto'?'Quantidade de criptomoedas *':'Saldo no aplicativo *';
+    refreshWalletPointPreview();
+  }
+  function refreshWalletPointPreview(){
+    const node=$('#walletPointsPreview');if(!node)return;
+    const points=Number($('#form-balance')?.value||0),mode=$('#form-pointValueMode')?.value;
+    const unit=Number($('#form-pointUnitValue')?.value||0),perUsd=Number($('#form-pointsPerUsd')?.value||0);
+    if($('#form-kind').value!=='points'){node.hidden=true;return;}
+    node.hidden=false;
+    const result=mode==='legacy'?(perUsd>0?points/perUsd:null):(unit>0?points*unit:null);
+    const curr=mode==='BRL'?'BRL':'USD';
+    node.textContent=result===null?'Informe a taxa manual para visualizar o valor estimado.':`Total estimado: ${cashLabel(result,curr)} (${amountLabel(points)} pontos).`;
   }
   function refreshCofferForm(c) {
     const wood=$('#form-mode').value==='woodbox';
@@ -543,16 +568,17 @@
       const record={id:id||uid(),date:fields.date,type:fields.type,category:fields.category,description:fields.description.trim().slice(0,120),payment:fields.type==='Reserva'?'':fields.payment,amount,goalId:fields.type==='Reserva'?fields.goalId||'':'',cofferId:'',boxSlot:null,notes:fields.notes?.trim().slice(0,300)||''};
       if(id)db.transactions=db.transactions.map(t=>t.id===id?record:t);else db.transactions.push(record);
     }else if(kind==='wallet'){
-      const balance=Number(fields.balance),rate=Number(fields.pointsPerUsd||0),manual=Number(fields.manualUsdPrice||0);
-      if(!fields.app?.trim()||![balance,rate,manual].every(v=>Number.isFinite(v)&&v>=0&&v<=1e12)){
+      const balance=Number(fields.balance),rate=Number(fields.pointsPerUsd||0),manual=Number(fields.manualUsdPrice||0),pointUnit=Number(fields.pointUnitValue||0);
+      if(!fields.app?.trim()||![balance,rate,manual,pointUnit].every(v=>Number.isFinite(v)&&v>=0&&v<=1e12)){
         notify('Informe um nome e valores válidos, sem números negativos.',true);return;
       }
-      if(balance>1e12||rate>1e12||manual>1e12){notify('Valor maior que o permitido.',true);return;}
+      if(balance>1e12||rate>1e12||manual>1e12||pointUnit>1e12){notify('Valor maior que o permitido.',true);return;}
       const kind=fields.kind;
       const currency=kind==='crypto'?fields.crypto:kind==='points'?'PTS':fields.currency;
       if(!['money','points','crypto'].includes(kind)||(kind==='money'&&!FIAT_CURRENCIES.includes(currency))||(kind==='crypto'&&!Object.hasOwn(CRYPTO_ASSETS,currency))){notify('Selecione um tipo de saldo válido.',true);return;}
-      if(kind==='points'&&fields.pointsPerUsd?.trim()&&rate<=0){notify('Informe uma taxa de pontos maior que zero.',true);return;}
-      const record={id:id||uid(),app:fields.app.trim().slice(0,100),kind,currency,balance:precise(balance),pointsPerUsd:kind==='points'?precise(rate):0,manualUsdPrice:kind==='crypto'?precise(manual):0};
+      if(kind==='points'&&fields.pointValueMode==='legacy'&&fields.pointsPerUsd?.trim()&&rate<=0){notify('Informe uma taxa de pontos maior que zero.',true);return;}
+      if(kind==='points'&&fields.pointValueMode!=='legacy'&&fields.pointUnitValue?.trim()&&pointUnit<=0){notify('O valor por ponto deve ser maior que zero.',true);return;}
+      const record={id:id||uid(),app:fields.app.trim().slice(0,100),kind,currency,balance:precise(balance),pointsPerUsd:kind==='points'?precise(rate):0,pointValueMode:kind==='points'?fields.pointValueMode:'legacy',pointUnitValue:kind==='points'?precise(pointUnit):0,manualUsdPrice:kind==='crypto'?precise(manual):0};
       if(id)db.wallets=db.wallets.map(w=>w.id===id?record:w);else db.wallets.push(record);
     }else if(kind==='category'){
       const name=fields.name?.trim().replace(/\s+/g,' ').slice(0,60);
@@ -846,8 +872,11 @@
       return {value:w.balance*quote.rate,detail:`Frankfurter · ${displayQuoteDate(quote.date)}`,source:'Câmbio'};
     }
     if(w.kind==='points'){
-      if(!w.pointsPerUsd)return {value:null,detail:'Cadastre a taxa de pontos por US$ 1 para estimar em reais.'};
-      const usd=w.balance/w.pointsPerUsd;
+      if(w.pointValueMode==='BRL'){
+        return w.pointUnitValue>0?{value:w.balance*w.pointUnitValue,detail:`1 ponto = ${cashLabel(w.pointUnitValue,'BRL')} · taxa manual`,source:'Pontos'}:{value:null,detail:'Informe o valor de 1 ponto em reais.',source:'Pontos'};
+      }
+      const usd=w.pointValueMode==='USD'?(w.pointUnitValue>0?w.balance*w.pointUnitValue:null):(w.pointsPerUsd>0?w.balance/w.pointsPerUsd:null);
+      if(usd===null)return {value:null,detail:'Informe a taxa manual de pontos para obter a estimativa.',source:'Pontos'};
       const quote=await fiatRate('USD','BRL');
       return {value:usd*quote.rate,detail:`≈ US$ ${amountLabel(usd)} · taxa de pontos manual; câmbio de ${displayQuoteDate(quote.date)}`,source:'Pontos'};
     }
@@ -865,7 +894,7 @@
     $('#walletCards').innerHTML=count?db.wallets.map(w=>{
       const label=w.kind==='money'?'Saldo em moeda':w.kind==='points'?'Recompensas e pontos':'Criptomoeda';
       const display=w.kind==='money'?cashLabel(w.balance,w.currency):`${amountLabel(w.balance)} ${w.kind==='points'?'pontos':w.currency}`;
-      const desc=w.kind==='points'?(w.pointsPerUsd?`1 USD = ${amountLabel(w.pointsPerUsd)} pontos`:'Sem taxa de conversão cadastrada'):w.kind==='crypto'?(w.manualUsdPrice?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}`:'Preço de mercado sujeito a atualização'):`Moeda: ${w.currency}`;
+      const desc=w.kind==='points'?(w.pointValueMode==='BRL'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'BRL')}`:'Sem taxa cadastrada'):w.pointValueMode==='USD'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'USD')}`:'Sem taxa cadastrada'):(w.pointsPerUsd?`1 USD = ${amountLabel(w.pointsPerUsd)} pontos`:'Sem taxa de conversão cadastrada')):w.kind==='crypto'?(w.manualUsdPrice?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}`:'Preço de mercado sujeito a atualização'):`Moeda: ${w.currency}`;
       return `<article class="wallet-card"><div class="wallet-card-top"><span class="wallet-type">${esc(label)}</span><span class="wallet-symbol">${w.kind==='money'?'💵':w.kind==='points'?'✦':'₿'}</span></div><h3>${esc(w.app)}</h3><strong class="wallet-balance">${esc(display)}</strong><p class="wallet-description">${esc(desc)}</p><div class="wallet-estimate" data-wallet-estimate="${esc(w.id)}">Calculando estimativa…</div><div class="wallet-actions"><button class="button button-outline" data-edit-wallet="${esc(w.id)}" type="button">Editar</button><button class="action-small danger" data-delete-wallet="${esc(w.id)}" type="button" aria-label="Excluir saldo do app ${esc(w.app)}">Excluir</button></div></article>`;
     }).join(''):'<div class="panel empty-state wallet-empty"><span class="empty-symbol">◈</span>Você ainda não cadastrou saldos de outros aplicativos.<br>Adicione sua primeira conta de pontos, moedas ou cripto.</div>';
     if(count)void refreshWalletValuations(token,[...db.wallets]);
@@ -887,6 +916,13 @@
   // ===== 07. INICIALIZAÇÃO E EVENTOS DO SITE =====
   function init() {
     load();
+    window.KaykoInvestimentos.mount({
+      getRecords:()=>db.investments,
+      saveRecords:records=>{db.investments=window.KaykoInvestimentos.normalizeRecords(records);save();},
+      getSettings:()=>db.settings.investmentMarket,
+      saveSettings:settings=>{db.settings.investmentMarket=window.KaykoInvestimentos.normalizeSettings(settings);save();},
+      notify
+    });
     $('#monthSelect').innerHTML=MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
     document.querySelector('.brand').addEventListener('click',e=>{e.preventDefault();navigate('painel');});
     $('#monthSelect').addEventListener('change',e=>{db.settings.month=Number(e.target.value);save();render();});
@@ -974,7 +1010,7 @@
     });
     document.addEventListener('change',e=>{if(e.target.matches('[data-budget-cat]'))saveBudget(e.target)});
     const validHash=location.hash.slice(1);
-    view=['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','ajuda'].includes(validHash)?validHash:'painel';
+    view=['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','investimentos','ajuda'].includes(validHash)?validHash:'painel';
     render();
   }
   init();

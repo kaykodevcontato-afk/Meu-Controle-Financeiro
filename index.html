@@ -20,6 +20,9 @@
   <script defer src="assets/js/rendimentos-simulador.js"></script>
   <!-- APIs e links de CoinGecko, CoinMarketCap, Investing e CoinPaprika -->
   <script defer src="assets/js/cotacoes-fontes.js"></script>
+  <!-- Investimentos: catálogo, preços, simulações e carteira; NÃO executa ordens -->
+  <link rel="stylesheet" href="assets/css/investimentos-trade.css">
+  <script defer src="assets/js/investimentos-trade.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -38,6 +41,7 @@
         <button class="nav-link" data-view="metas" type="button"><span class="nav-icon">◎</span> Minhas metas</button>
         <button class="nav-link" data-view="cofrinhos" type="button"><span class="nav-icon">▦</span> Cofrinhos e Woodbox</button>
         <button class="nav-link" data-view="carteiras" type="button"><span class="nav-icon">◈</span> Apps, pontos e moedas</button>
+        <button class="nav-link" data-view="investimentos" type="button"><span class="nav-icon">↗</span> Investimentos e Trade</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="aside-note"><span class="safe-indicator"></span><span><strong>Dados neste dispositivo</strong><small>Salvamento automático no navegador. Faça backups periódicos.</small></span></div>
@@ -199,6 +203,38 @@
               <p class="quote-links-note">CoinGecko e CoinMarketCap fornecem consultas automáticas quando a API e o navegador permitem. Investing.com abre para consulta externa: não há integração automática com o site. Cada fonte pode exibir preços diferentes por horário e mercado.</p>
             </div>
             <p class="rate-attribution">Cotações indicativas, sujeitas a atraso e limites dos serviços, sem incluir impostos, taxas, spread ou valor efetivo de resgate. Não são ordens de compra ou venda.</p>
+          </section>
+        </section>
+        <!-- INVESTIMENTOS | HTML/UX AQUI; lógica em assets/js/investimentos-trade.js -->
+        <section id="view-investimentos" class="view" aria-label="Investimentos e Trade">
+          <div class="invest-intro"><strong>Acompanhe investimentos sem sair do seu controle financeiro.</strong> Consulte preços indicativos, compare aplicações e registre posições já compradas em outros apps. Este site <strong>não compra, vende, envia ordens, guarda dinheiro ou prevê lucro</strong>. Investimentos e operações de trade podem causar prejuízo. Os valores desta área não são somados às receitas, saldos livres, reservas nem cofrinhos.</div>
+          <div class="panel" id="invCatalog">
+            <div class="invest-section-head"><div><h2>Ativos para conhecer e comparar</h2><p>Ações B3 e EUA, ETFs, criptomoedas e exposição ao petróleo.</p></div><div class="invest-actions"><label for="invAssetFilter" class="sr-only">Filtrar ativos</label><select id="invAssetFilter" aria-label="Filtrar ativos"><option value="all">Todos os ativos</option><option value="b3">Ações B3</option><option value="etf">ETFs</option><option value="eua">Ações EUA</option><option value="petroleo">Petróleo</option><option value="cripto">Criptomoedas</option></select><button type="button" class="button button-primary button-small" id="invRefreshQuotes">↻ Consultar cotações</button></div></div>
+            <div class="invest-market-grid" id="invMarketCards"></div><p class="invest-price-status" id="invQuoteStatus" role="status" aria-live="polite">Clique em consultar cotações. Dados automáticos disponíveis apenas para determinados ativos; as demais cotações devem ser verificadas externamente.</p>
+            <p class="invest-disclaimer">Os preços históricos exibidos no catálogo são referentes ao fechamento de <strong>06/11/2026</strong>, apenas como referência datada. Preços de mercado mudam e podem vir atrasados das APIs. Uma cota de ETF não equivale a uma ação da empresa. Petróleo por fundo de futuros pode não seguir o barril à vista. Comprar uma fração depende das regras e do mínimo da corretora.</p>
+          </div>
+          <div class="invest-work-grid">
+            <section class="panel" id="invSimulator"><div class="invest-section-head"><div><h2>Simular investimento e resultado de trade</h2><p>Informe seu valor e uma variação hipotética, positiva ou negativa.</p></div></div>
+              <div class="invest-scenario-form"><label class="wide" for="invScenarioAsset">Ativo<select id="invScenarioAsset"></select></label><label for="invScenarioAmount">Capital inicial (<span id="invScenarioCurrency">BRL</span>)<input id="invScenarioAmount" type="number" min="0" max="1000000000000" step="any" value="1000" inputmode="decimal"></label><label for="invScenarioPrice">Preço por unidade na moeda do ativo<input id="invScenarioPrice" type="number" min="0.00000001" max="1000000000000" step="any" inputmode="decimal"><small class="invest-field-help" id="invScenarioPriceLabel"></small></label><label class="wide" for="invScenarioChange">Variação hipotética no período escolhido (%)<input id="invScenarioChange" type="number" min="-100" max="5000" step="0.5" value="10" inputmode="decimal"></label></div>
+              <div class="invest-sim-result" id="invScenarioResult" aria-live="polite"></div><p class="invest-disclaimer">O cálculo de ações/ETFs usa unidades inteiras quando exigido; criptomoedas e certas ações nos EUA permitem frações, sujeito à corretora. Não considera taxas, custos de câmbio, impostos nem dividendos. <strong>Não é previsão de rendimento mensal ou diário.</strong></p>
+            </section>
+            <section class="panel"><div class="invest-section-head"><div><h2>Sites e corretoras para pesquisar</h2><p>As melhores opções dependem do seu objetivo, custos e perfil.</p></div></div>
+              <div class="invest-external-list">
+                <div class="invest-external-item"><div><strong>Inter Invest</strong><span>B3 e EUA; Inter Securities informa mínimo de US$ 10 por ordem</span></div><a href="https://inter.co/investimentos/" target="_blank" rel="noopener noreferrer">Conhecer ↗</a></div>
+                <div class="invest-external-item"><div><strong>Nubank Investimentos</strong><span>Aplicações e bolsa brasileira pelo aplicativo</span></div><a href="https://nubank.com.br/investimentos/" target="_blank" rel="noopener noreferrer">Conhecer ↗</a></div>
+                <div class="invest-external-item"><div><strong>Clear Corretora</strong><span>Plataformas de bolsa e negociação; compare custos</span></div><a href="https://corretora.clear.com.br/" target="_blank" rel="noopener noreferrer">Conhecer ↗</a></div>
+                <div class="invest-external-item"><div><strong>Binance</strong><span>Criptomoedas, compra à vista e ferramentas de trade</span></div><a href="https://www.binance.com/pt-BR" target="_blank" rel="noopener noreferrer">Conhecer ↗</a></div>
+                <div class="invest-external-item"><div><strong>Tesouro Direto</strong><span>Títulos públicos; Tesouro Reserva tem aplicação a partir de R$ 1</span></div><a href="https://www.tesourodireto.com.br/" target="_blank" rel="noopener noreferrer">Conhecer ↗</a></div>
+                <div class="invest-external-item"><div><strong>TradingView</strong><span>Gráficos e análise de ativos; não é corretora</span></div><a href="https://br.tradingview.com/" target="_blank" rel="noopener noreferrer">Gráficos ↗</a></div>
+              </div>
+              <div class="invest-fx-tools" style="margin-top:17px"><label for="invUsdBrl">Câmbio USD → BRL (opcional)<input id="invUsdBrl" type="number" min="0" max="1000" step="0.0001" placeholder="Automático; ou digite a taxa" inputmode="decimal"></label><button type="button" class="button button-outline button-small" id="invGetFx">↻ Consultar dólar</button></div><p id="invFxStatus" class="invest-hint" role="status" aria-live="polite"></p>
+              <p class="invest-disclaimer">Não compartilhe senhas, tokens de negociação nem chaves privadas. Verifique cadastro e taxas no site oficial antes de abrir conta. Evite alavancagem para começar.</p>
+            </section>
+          </div>
+          <section class="panel" id="invHoldings"><div class="invest-section-head"><div><h2>Minha carteira e minhas operações</h2><p>Registre manualmente posições que já possui, sem enviar ordens às corretoras.</p></div></div>
+            <form id="invPositionForm" class="invest-form"><label for="invPositionAsset">Ativo<select id="invPositionAsset" name="symbol" required></select></label><label for="invPositionQty">Quantidade<input id="invPositionQty" type="number" name="quantity" required min="0.00000001" step="any" placeholder="Ex.: 2" inputmode="decimal"></label><label for="invPositionBuyPrice">Preço médio pago por unidade (<span id="invPositionCurrency">BRL</span>)<input id="invPositionBuyPrice" name="buyPrice" type="number" required min="0.00000001" step="any" inputmode="decimal" placeholder="Preço de compra"></label><label for="invPositionCurrentPrice">Cotação atual manual (opcional)<input id="invPositionCurrentPrice" name="currentPrice" type="number" min="0.00000001" step="any" inputmode="decimal" placeholder="Se não houver cotação automática"></label><label for="invPositionDate">Data da compra<input id="invPositionDate" type="date" name="date" required></label><label for="invPositionNotes">Observação (opcional)<input id="invPositionNotes" type="text" name="notes" maxlength="120" placeholder="Ex.: corretora que utilizei"></label><div class="invest-submit-line"><button class="button button-primary" type="submit" id="invPositionSubmit">Adicionar à carteira</button><button class="button button-outline" type="button" id="invCancelEdit" hidden>Cancelar edição</button></div></form>
+            <div class="invest-portfolio-summary" id="invPortfolioSummary"></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Ativo</th><th>Quantidade</th><th>Preço médio</th><th>Aplicado</th><th>Valor estimado</th><th>Lucro / prejuízo</th><th>Ações</th></tr></thead><tbody id="invHoldingsRows"></tbody></table></div>
+            <p class="invest-disclaimer">Somente preços consultados ou informados manualmente são utilizados para calcular valorização. Posições sem cotação não entram no valor estimado; somatórios parciais ficam identificados. Resultado é <strong>não realizado</strong>, sem impostos, dividendos e custos. Registros desta carteira não alteram seu saldo disponível e são preservados no backup JSON.</p>
           </section>
         </section>
         <section id="view-ajuda" class="view" aria-label="Como usar">

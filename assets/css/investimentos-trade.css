@@ -1,0 +1,66 @@
+/* INVESTIMENTOS E TRADE | Todos os componentes respeitam os oito temas do site.
+   Troque cores e medidas aqui, sem alterar style.css ou app.js. */
+.invest-intro{padding:18px 21px;border:1px solid var(--ui-border);border-left:4px solid var(--ui-accent);border-radius:14px;background:var(--ui-surface-alt);color:var(--ui-body);font-size:12px;line-height:1.7;margin-bottom:22px}
+.invest-intro strong{color:var(--ui-ink)}
+.invest-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:15px}
+.invest-section-head h2{margin:0 0 3px;font-size:18px;color:var(--ui-ink)}
+.invest-section-head p{font-size:12px;margin:0;color:var(--ui-muted)}
+.invest-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.invest-actions select,.invest-form input,.invest-form select,.invest-form textarea,.invest-scenario-form input,.invest-scenario-form select,.invest-fx-tools input{border:1px solid var(--ui-border);color:var(--ui-ink);background:var(--ui-surface);border-radius:10px;padding:10px 11px;min-width:0;width:100%;min-height:41px}
+.invest-actions select{width:auto;min-width:150px}
+.invest-market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:14px}
+.invest-market-card{border:1px solid var(--ui-border);border-radius:15px;background:var(--ui-surface);padding:17px;display:flex;flex-direction:column;gap:7px;min-width:0;box-shadow:var(--ui-shadow)}
+.invest-market-card h3{font-size:14px;margin:1px 0 3px;color:var(--ui-ink);letter-spacing:0}
+.invest-market-top{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.invest-ticker{font-size:11px;font-weight:900;padding:5px 9px;border-radius:8px;background:var(--ui-accent-soft);color:var(--ui-accent)}
+.invest-type{font-size:10px;color:var(--ui-muted);font-weight:700}
+.invest-price{font:800 23px/1.3 'Plus Jakarta Sans','DM Sans',sans-serif;color:var(--ui-ink);overflow-wrap:anywhere}
+.invest-price-source{font-size:10px;color:var(--ui-muted);line-height:1.5;min-height:30px}
+.invest-market-card p{font-size:11px;line-height:1.65;color:var(--ui-body);margin:0;flex:1}
+.invest-min{font-size:11px;line-height:1.6;border-radius:9px;padding:10px;background:var(--ui-surface-alt);color:var(--ui-body)}
+.invest-min strong{color:var(--ui-ink)}
+.invest-card-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px}
+.invest-card-actions .button{flex:1;font-size:11px;min-height:37px}
+.invest-price-status{margin:10px 0 2px;font-size:11px;color:var(--ui-muted)}
+.invest-work-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin:21px 0}
+.invest-work-grid>.panel{margin:0}
+.invest-scenario-form,.invest-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.invest-scenario-form label,.invest-form label,.invest-fx-tools label{display:grid;gap:6px;color:var(--ui-body);font-size:11px;font-weight:800}
+.invest-form label.wide,.invest-scenario-form label.wide{grid-column:1/-1}
+.invest-field-help,.invest-hint{font-size:11px;line-height:1.75;color:var(--ui-muted);margin:8px 0 0}
+.invest-hint strong{color:var(--ui-ink)}
+.invest-sim-result{border:1px solid var(--ui-border);border-radius:12px;background:var(--ui-surface-alt);padding:14px;margin-top:16px}
+.invest-sim-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.invest-sim-stats div,.invest-kpi{min-width:0;display:grid;gap:4px}
+.invest-sim-stats small,.invest-kpi>span{font-size:10px;color:var(--ui-muted);font-weight:700}
+.invest-sim-stats strong{font-size:17px;line-height:1.35;color:var(--ui-ink);overflow-wrap:anywhere}
+.invest-positive{color:#0b986c!important;font-weight:800}
+.invest-negative{color:#cf5264!important;font-weight:800}
+html[data-mode="dark"] .invest-positive{color:#65ddb4!important}
+html[data-mode="dark"] .invest-negative{color:#ff9ca6!important}
+.invest-fx-tools{display:flex;flex-wrap:wrap;align-items:end;gap:9px}
+.invest-fx-tools label{flex:1;min-width:140px}
+.invest-fx-tools input{max-width:225px}
+.invest-external-list{display:grid;gap:10px}
+.invest-external-item{display:flex;align-items:center;justify-content:space-between;gap:9px;border:1px solid var(--ui-border);padding:12px;border-radius:11px;background:var(--ui-surface-alt)}
+.invest-external-item strong{display:block;color:var(--ui-ink);font-size:12px;margin-bottom:2px}
+.invest-external-item span{font-size:10px;color:var(--ui-muted)}
+.invest-external-item a{font-size:11px;font-weight:800;color:var(--ui-accent);text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.invest-submit-line{grid-column:1/-1;display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:3px}
+.invest-portfolio-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:15px 0}
+.invest-kpi{border:1px solid var(--ui-border);border-radius:12px;background:var(--ui-surface-alt);padding:14px}
+.invest-kpi strong{font-size:22px;color:var(--ui-ink);overflow-wrap:anywhere}
+.invest-kpi small{font-size:10px;color:var(--ui-muted);line-height:1.5}
+.invest-holding-name strong{display:block;color:var(--ui-ink);font-size:12px}
+.invest-holding-name small,.invest-cell-detail{display:block;margin-top:4px;font-size:10px;color:var(--ui-muted)}
+.invest-table-actions{white-space:nowrap}
+.invest-table-actions button{margin:3px 0}
+.invest-holdings-panel{margin-top:19px}
+.invest-holdings-panel .data-table{min-width:900px}
+.invest-disclaimer{font-size:11px;line-height:1.8;color:var(--ui-muted);border-top:1px solid var(--ui-border);padding-top:15px;margin:18px 0 0}
+.invest-disclaimer a,.invest-hint a{color:var(--ui-accent);text-decoration:underline}
+@media(max-width:1150px){.invest-work-grid{grid-template-columns:1fr}.invest-portfolio-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.invest-market-grid{grid-template-columns:1fr}.invest-scenario-form,.invest-form{grid-template-columns:1fr}.invest-sim-stats{grid-template-columns:1fr 1fr}.invest-portfolio-summary{grid-template-columns:1fr}.invest-actions{width:100%}.invest-actions select{flex:1}.invest-section-head{gap:12px}.invest-work-grid{gap:15px}}
+@media print{.invest-card-actions,.invest-actions,.invest-submit-line{display:none!important}}
+/* Menu lateral com mais uma aba: em telas baixas, permite rolar até Ajuda. */
+.sidebar{overflow-y:auto}

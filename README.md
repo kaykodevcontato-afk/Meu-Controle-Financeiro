@@ -216,3 +216,36 @@ Fontes: [Banco Central, taxa CDI série 12](https://www3.bcb.gov.br/sgspub/consu
 - `app.js`: uso das fontes no conversor e no cálculo de saldos cadastrados.
 - **Atenção:** não há API pública oficial do Investing.com para leitura direta. Abrimos o site para conferência. No CoinMarketCap, a API pública keyless é documentada, mas requisições de navegador podem ser bloqueadas por políticas de CORS; nesse caso a opção Automática tenta outras fontes.
 - Cotações são referências, podem ser diferentes dos valores praticados no resgate e não movimentam dinheiro.
+
+## Novidade — Investimentos e Trade (2026-11-09)
+
+Acesse **Investimentos e Trade** pelo menu lateral. Esta área é **educacional e de acompanhamento manual**, sem abrir conta, sem conexão com corretora e sem negociar ativos.
+
+- **Catálogo:** Petrobras (PETR4), Vale (VALE3), Itaú (ITUB4), Magazine Luiza (MGLU3), BOVA11, IVVB11, Apple (AAPL), Microsoft (MSFT), USO (fundo de futuros de petróleo), Bitcoin (BTC) e Ethereum (ETH).
+- **Preços:** por solicitação, o sistema tenta consultar PETR4, VALE3, ITUB4, MGLU3 pela API pública de testes brapi.dev e BTC/ETH pelas fontes de cripto do conversor. As outras ações/ETFs exigem preço manual ou consulta em links externos. As cotações podem falhar ou estar atrasadas. As referências do catálogo (incluindo PETR4 R$ 45,36 e AAPL US$ 342,37) são **fechamentos de 06/11/2026**, nunca cotação atual, e não são utilizadas como cotação atual da carteira.
+- **Valor para começar:** ações e ETFs brasileiros permitem 1 unidade no mercado fracionário; criptomoedas admitem frações; ações nos EUA podem admitir frações dependendo da corretora. Valor mínimo e custos variam por instituição.
+- **Simulador de trade:** informe capital, preço por unidade e uma variação hipotética, positiva ou negativa; o site calcula quantidade, saldo restante, valor final e ganho/prejuízo **não garantidos**. Sem dividendos, tributos, spread, taxas e câmbio automático garantido.
+- **Carteira manual:** cadastre ativo, quantidade, preço médio pago, data, observações e opcionalmente um preço atual manual. O site calcula valorização somente se houver cotação consultada ou informada. Não altera o saldo disponível e salva os registros no backup JSON.
+- **Conversão:** botão consulta USD/BRL no Frankfurter, com possibilidade de digitar cotação. Se faltar câmbio ou cotação, os resumos exibem **parcial**, em vez de inventar valores.
+
+### Arquivos da área
+
+| Arquivo | O que editar |
+|---|---|
+| `index.html` | Tela, textos, links para corretoras e campos |
+| `assets/js/investimentos-trade.js` | Lista `ATIVOS`, regras, fontes, simulações, posições |
+| `assets/css/investimentos-trade.css` | Visual e responsividade, inclusive modo escuro |
+| `app.js` | Integração com o armazenamento, backup e menu |
+| `tests/investimentos-trade.test.js` | Testes das regras e validação dos backups |
+
+A chave do armazenamento local continua **`kayko-controle-financeiro-v1`**, e o formato geral de backup permanece **`version:1`**, aceitando backups das versões anteriores. Os registros de investimento são opcionais (`investments: []`). Atualize todos os arquivos do ZIP no mesmo repositório GitHub Pages, preservando a pasta `assets`.
+
+**Segurança:** nunca coloque em arquivos públicos tokens de corretoras, credenciais bancárias ou chaves privadas. APIs públicas podem estar indisponíveis por CORS ou rate limiting. Lucros não são garantidos, e o day trade pode causar perdas rápidas.
+
+Fontes para referência: https://brapi.dev/faq/api-e-gratis-mesmo • https://investor.apple.com/stock-price/default.aspx • https://www.tesourodireto.com.br/sobre-o-tesouro/regras-e-regulamento • https://www.uscfinvestments.com/uso
+
+**Fontes das referências datadas do catálogo:** Petrobras, Vale, Itaú, Magazine Luiza, BOVA11 e IVVB11: https://www.cotab3.com.br/ ; Apple: https://investor.apple.com/stock-price/default.aspx ; Microsoft: https://stockanalysis.com/stocks/msft/history/ ; USO: https://br.investing.com/etfs/united-states-oil-fund-historical-data .
+
+## Novidade — valor por ponto em reais ou dólares
+
+Ao selecionar **Apps, pontos e moedas → Adicionar app / saldo → Pontos / recompensas**, escolha a forma de cotação manual: quantos pontos equivalem a US$ 1 (modo anterior), quanto vale 1 ponto em reais (BRL) ou quanto vale 1 ponto em dólares (USD). A prévia calcula o total no próprio formulário. A cotação em dólares é convertida para reais usando a fonte de câmbio do site quando disponível. Valores estimados não entram nas receitas nem no saldo disponível. Os dados e a forma de cálculo são incluídos nos backups JSON.

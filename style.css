@@ -264,3 +264,5 @@ html[data-mode="dark"] .coffer-select,.wallet-card{color:var(--ui-ink)}
 
 .wallet-refresh-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 13px;color:var(--ui-muted);font-size:11px}
 .wallet-refresh-row button{min-height:35px;padding:8px 12px}
+/* Apps e pontos: prévia de conversão no formulário */
+#walletPointsPreview:not([hidden]){grid-column:1/-1;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-weight:700}
