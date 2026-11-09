@@ -265,3 +265,7 @@ No topo, clique **Imprimir relatório**. Uma nova janela mostra o relatório com
 Inclui resumo do mês e histórico, lançamentos de todos os meses, orçamentos, contas e meses marcados pagos, metas, cofrinhos/Woodbox, aplicativos de pontos/saldos e carteira manual de investimentos. É apenas um relatório local; nenhuma simulação altera saldos e nenhuma cotação é atualizada durante a impressão. Guarde o arquivo PDF em local privado.
 
 **Onde editar:** `assets/js/relatorio-impressao.js` controla as seções, cálculos e layout impresso; `assets/css/relatorio-impressao.css` controla o botão no topo; `index.html` contém o botão; `app.js` liga o botão ao banco local.
+
+## Equivalência personalizada de pontos (novidade)
+
+Em **Apps, pontos e moedas**, é possível definir manualmente **1 ponto = R$ 1,00** ou **3.615 pontos = R$ 15,00**, assim como outras relações. Selecione **Equivalência personalizada em R$** e preencha a quantidade de pontos de referência e o correspondente valor em reais. A prévia e o cartão mostram o total estimado. Não há troca real de pontos nem transferência de saldo. Modos anteriores de avaliação são preservados.

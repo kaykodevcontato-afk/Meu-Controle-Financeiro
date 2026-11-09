@@ -154,3 +154,15 @@ No arquivo `app.js`, localize `openForm` no bloco `kind==='wallet'` para editar 
 - Campos e tabelas do relatório e regras de impressão: `assets/js/relatorio-impressao.js`.
 - Estilo do botão: `assets/css/relatorio-impressao.css`.
 - Evento e acesso aos dados atuais: `app.js` (procure `printReportButton`).
+
+## Pontos de aplicativos — equivalência em reais
+
+Em **Apps, pontos e moedas → Adicionar app ou saldo → Pontos / recompensas**, no campo **Como definir o valor dos pontos?** escolha **Equivalência personalizada em R$**.
+
+- Exemplo A: 1 ponto = R$ 1 → coloque **Pontos de referência = 1**, **Valor equivalente em reais = 1**.
+- Exemplo B: 3.615 pontos = R$ 15 → coloque **Pontos de referência = 3615**, **Valor equivalente em reais = 15**.
+- A quantidade de pontos possuída é preenchida em **Quantidade de pontos**. O total estimado é calculado automaticamente sem arredondar o valor unitário antes da multiplicação.
+
+**Onde editar:** `app.js`, procure por `pointReferencePoints`, `pointReferenceBRL`, `refreshWalletPointPreview` e `valueWalletInBRL`. A impressão deste dado fica em `assets/js/relatorio-impressao.js`.
+
+Os cadastros antigos de pontos continuam com seu modo de cálculo anterior. O backup JSON inclui as novas informações.
