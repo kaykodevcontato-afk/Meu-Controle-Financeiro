@@ -1,0 +1,44 @@
+// Rode: node tests/rendimentos-simulador.test.js
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source=fs.readFileSync(path.join(__dirname,'../assets/js/rendimentos-simulador.js'),'utf8');
+const window={};vm.runInNewContext(source,{window,Number,Math,Array,Object,String,RegExp,Promise,Error,console});
+const R=window.KaykoRendimentos;
+const close=(a,b,eps=1e-8)=>assert.ok(Math.abs(a-b)<eps, `${a} not close to ${b}`);
+assert.equal(R.normalize(null).principal,1000,'Saldo ilustrativo inicial');
+assert.equal(R.normalize(null).cdiAnnual,10,'Taxa inicial identificada como exemplo');
+assert.equal(R.normalize({principal:-5}).principal,1000,'Rejeitar saldos negativos do backup');
+assert.equal(R.normalize({principal:550}).principal,550,'Aceitar saldo manual');
+assert.equal(R.normalize({source:'coffer:1234-a',principal:9}).source,'coffer:1234-a');
+assert.equal(R.normalize({source:'__invalido'}).source,'manual');
+assert.equal(R.businessDays(1,'months'),21);
+assert.equal(R.businessDays(1,'days'),1);
+close(R.project(1000,0,252).grossYield,0);
+close(R.project(1000,12,252).grossTotal,1120);
+const out=R.compare({principal:2000,cdiAnnual:10,selicAnnual:10,cdiPercent:100,periodCount:12,periodUnit:'months'});
+close(out.cdi.grossTotal,2200);
+close(out.treasury.grossTotal,2200);
+assert.equal(out.days,252);
+assert.equal(out.principal,2000);
+assert.ok(out.quick.cdiDay>0);
+assert.ok(out.quick.cdiMonth>out.quick.cdiDay);
+const half=R.compare({principal:2000,cdiAnnual:10,selicAnnual:10,cdiPercent:50,periodCount:12,periodUnit:'months'});
+assert.ok(half.cdi.grossYield<out.cdi.grossYield && half.cdi.grossYield>0);
+assert.ok(half.treasury.grossYield===out.treasury.grossYield);
+const fallback=R.compare({principal:1000,cdiAnnual:10,periodUnit:'days',periodCount:1},5000);
+assert.equal(fallback.principal,5000,'Escolher saldo existente deve alterar somente a projeção');
+async function testBcb(){
+ const urls=[];
+ const mockFetch=async url=>{urls.push(url);return {ok:true,json:async()=>[{data:'05/11/2026',valor:url.includes('sgs.12')?'0.050788':'0.051000'}]};};
+ const result=await R.fetchRates(mockFetch);
+ assert.equal(urls.length,2);
+ assert.ok(result.cdiAnnual>0 && result.selicAnnual>0);
+ assert.ok(result.rateDate.includes('05/11/2026'));
+ const safe=R.normalize({...result,rateSource:'bcb'});
+ assert.equal(safe.rateSource,'bcb');assert.equal(safe.rateDate,result.rateDate);
+ console.log('✓ 20+ testes de juros, CDI, Tesouro Selic, validação e API Banco Central passaram.');
+}
+testBcb().catch(err=>{console.error(err);process.exitCode=1;});

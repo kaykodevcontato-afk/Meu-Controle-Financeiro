@@ -1,8 +1,13 @@
 /* Meu Controle Financeiro | Dev Kayko
    Site estático para GitHub Pages. Dados armazenados localmente no navegador.
-   Não envia dados para servidores, nem sincroniza entre dispositivos. */
+   Não envia lançamentos ou saldos a servidores, nem sincroniza entre dispositivos.
+   Apenas consulta cotações públicas de ativos em provedores externos. */
 (() => {
   'use strict';
+  // MAPA DE EDIÇÃO: consulte docs/GUIA_DE_EDICAO.md para localizar cada seção.
+  // Prioridades das contas: assets/js/contas-prioridades.js (cores no CSS correspondente).
+  // Simulador de rendimento: assets/js/rendimentos-simulador.js (cores no CSS correspondente).
+  // Fontes de câmbio e links: assets/js/cotacoes-fontes.js (CSS em assets/css/).
   const STORAGE_KEY = 'kayko-controle-financeiro-v1';
   const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const SHORT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -22,6 +27,18 @@
     'crescente200': {name:'R$ 20.100 · de R$ 1 até R$ 200', count:200, ascending:true},
     'custom': {name:'Personalizado · parcelas iguais'}
   };
+  const FIAT_CURRENCIES = ['BRL','USD','EUR','GBP','JPY','CAD','CHF','ARS','MXN','AUD'];
+  const CRYPTO_ASSETS = {
+    BTC:['Bitcoin','btc-bitcoin'], ETH:['Ethereum','eth-ethereum'], SOL:['Solana','sol-solana'],
+    USDT:['Tether','usdt-tether'], USDC:['USD Coin','usdc-usd-coin'], BNB:['BNB','bnb-binance-coin'],
+    DOGE:['Dogecoin','doge-dogecoin'], ADA:['Cardano','ada-cardano'], XRP:['XRP','xrp-xrp'],
+    LTC:['Litecoin','ltc-litecoin']
+  };
+  const rateCache = new Map();
+  const expenseCats = () => [...EXPENSE_CATS, ...db.customCategories];
+  const precise = n => Math.round((Number(n)||0)*1e8)/1e8;
+  const amountLabel = n => new Intl.NumberFormat('pt-BR',{maximumFractionDigits:8}).format(Number(n)||0);
+  const cashLabel = (n,code) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:code,maximumFractionDigits:2}).format(Number(n)||0);
   const CAT_COLORS = ['#38bd9b','#6f9de8','#f0ac80','#9d8bd7','#e47791','#44b6c7','#edc06e','#87b99d','#8592b0','#b3a08b'];
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -32,13 +49,14 @@
   const uid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const today = () => {const d = new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
   const fmtDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? `${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}` : '—';
-  const defaultDB = () => ({version:1, transactions:[], bills:[], goals:[], coffers:[], budgets:{}, settings:{month:11,year:2026,monthlySavingsTarget:0}});
+  const defaultDB = () => ({version:1, transactions:[], bills:[], goals:[], coffers:[], wallets:[], customCategories:[], budgets:{}, settings:{month:11,year:2026,monthlySavingsTarget:0,themeMode:'light',themePalette:'current',cryptoQuoteSource:'auto',investmentSimulator:null}});
   let db = defaultDB();
   let view = 'painel';
   let editing = null;
   let selectedCofferId = null;
   let toastTimeout;
   let previousFocus = null;
+  // ===== 01. ARMAZENAMENTO, BACKUP COMPATÍVEL E VALIDAÇÃO =====
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -51,7 +69,9 @@
     const clean = s => String(s??'').slice(0,500);
     const types = ['Entrada','Gasto','Reserva','Resgate'];
     const transactions = candidate.transactions.slice(0,30000).map(t => ({id:clean(t.id||uid()),date:/^\d{4}-\d{2}-\d{2}$/.test(t.date)?t.date:today(),type:types.includes(t.type)?t.type:'Gasto',category:clean(t.category),description:clean(t.description),payment:clean(t.payment),amount:amount(t.amount),goalId:clean(t.goalId),cofferId:clean(t.cofferId),boxSlot:Number.isInteger(t.boxSlot)&&t.boxSlot>=0&&t.boxSlot<500?t.boxSlot:null,notes:clean(t.notes)}));
-    const bills = candidate.bills.slice(0,1000).map(b => ({id:clean(b.id||uid()),name:clean(b.name),category:EXPENSE_CATS.includes(b.category)?b.category:'Outros',day:clamp(Math.floor(Number(b.day)||1),1,31),amount:amount(b.amount),active:b.active!==false}));
+    const customCategories=[...new Set((Array.isArray(candidate.customCategories)?candidate.customCategories:[]).slice(0,100).map(c=>clean(c).trim().slice(0,60)).filter(c=>c&&!EXPENSE_CATS.some(d=>d.toLowerCase()===c.toLowerCase())))];
+    const allowedCategories=[...EXPENSE_CATS,...customCategories];
+    const bills = candidate.bills.slice(0,1000).map(b => ({id:clean(b.id||uid()),name:clean(b.name),category:allowedCategories.includes(b.category)?b.category:'Outros',day:clamp(Math.floor(Number(b.day)||1),1,31),amount:amount(b.amount),active:b.active!==false}));
     const goals = candidate.goals.slice(0,1000).map(g => ({id:clean(g.id||uid()),name:clean(g.name),target:amount(g.target),initial:amount(g.initial)}));
     const coffers = (Array.isArray(candidate.coffers)?candidate.coffers:[]).slice(0,200).map(c => ({
       id:clean(c.id||uid()), name:clean(c.name), mode:c.mode==='woodbox'?'woodbox':'free',
@@ -59,15 +79,21 @@
       plan:WOODBOX_PLANS[c.plan]?c.plan:'mil',
       count:clamp(Math.floor(Number(c.count)||100),1,500),unit:amount(c.unit)
     }));
+    const wallets = (Array.isArray(candidate.wallets)?candidate.wallets:[]).slice(0,1000).map(w=>{
+      const kind=['money','points','crypto'].includes(w.kind)?w.kind:'money';
+      const currency=kind==='crypto'&&Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:kind==='money'&&FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL';
+      const number = v => typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e12?precise(v):0;
+      return {id:clean(w.id||uid()),app:clean(w.app).slice(0,100),kind,currency,balance:number(w.balance),pointsPerUsd:number(w.pointsPerUsd),manualUsdPrice:number(w.manualUsdPrice)};
+    });
     const budgets = {};
     for (const key of Object.keys(candidate.budgets).slice(0,1000)) {
       if (/^\d{4}-\d{2}$/.test(key) && candidate.budgets[key] && typeof candidate.budgets[key]==='object') {
         budgets[key] = {};
-        for (const cat of EXPENSE_CATS) if (Object.hasOwn(candidate.budgets[key],cat)) budgets[key][cat] = amount(candidate.budgets[key][cat]);
+        for (const cat of allowedCategories) if (Object.hasOwn(candidate.budgets[key],cat)) budgets[key][cat] = amount(candidate.budgets[key][cat]);
       }
     }
     const settings=candidate.settings||{};
-    return {version:1,transactions,bills,goals,coffers,budgets,settings:{month:clamp(Math.floor(Number(settings.month)||11),1,12),year:clamp(Math.floor(Number(settings.year)||2026),2000,2100),monthlySavingsTarget:amount(settings.monthlySavingsTarget)}};
+    return {version:1,transactions,bills,goals,coffers,wallets,customCategories,budgets,settings:{month:clamp(Math.floor(Number(settings.month)||11),1,12),year:clamp(Math.floor(Number(settings.year)||2026),2000,2100),monthlySavingsTarget:amount(settings.monthlySavingsTarget),themeMode:settings.themeMode==='dark'?'dark':'light',themePalette:['current','blue','pink','purple'].includes(settings.themePalette)?settings.themePalette:'current',cryptoQuoteSource:window.KaykoCotacoes.validProvider(settings.cryptoQuoteSource),investmentSimulator:window.KaykoRendimentos.normalize(settings.investmentSimulator)}};
   }
   function save() {
     try { localStorage.setItem(STORAGE_KEY,JSON.stringify(db));return true; }
@@ -100,8 +126,9 @@
   function occupiedCofferSlots(c){return new Map(cofferTransactions(c.id).filter(t=>t.type==='Reserva'&&Number.isInteger(t.boxSlot)).map(t=>[t.boxSlot,t]));}
   function fixedTotal() { return dec(db.bills.filter(b=>b.active).reduce((sum,b)=>sum+b.amount,0)); }
   function activeGoalIds() {return new Set(db.goals.map(g=>g.id));}
+  // ===== 02. MENU, NAVEGAÇÃO E RENDERIZAÇÃO =====
   function render() {
-    const titleMap = {painel:['Seu dinheiro, sob controle.','Acompanhe suas receitas, gastos e quanto você está conseguindo guardar.','Visão geral'],lancamentos:['Registre cada movimentação.','Tudo que entra, sai ou é separado para economizar.','Lançamentos'],orcamento:['Planeje seu orçamento.','Defina limites de gastos e mantenha seu planejamento.','Orçamento'],contas:['Suas contas em dia.','Organize os pagamentos recorrentes sem confundir previsão com gasto.','Contas fixas'],metas:['Um passo de cada vez.','Transforme seus objetivos em metas de economia.','Minhas metas'],cofrinhos:['Seu dinheiro vai ganhar destino.','Cofrinhos livres e desafios Woodbox com cartelas interativas.','Cofrinhos'],ajuda:['Aprenda a usar.','Seu guia de uso e as opções para proteger seus dados.','Como usar']};
+    const titleMap = {painel:['Seu dinheiro, sob controle.','Acompanhe suas receitas, gastos e quanto você está conseguindo guardar.','Visão geral'],lancamentos:['Registre cada movimentação.','Tudo que entra, sai ou é separado para economizar.','Lançamentos'],orcamento:['Planeje seu orçamento.','Defina limites de gastos e mantenha seu planejamento.','Orçamento'],contas:['Suas contas em dia.','Organize os pagamentos recorrentes sem confundir previsão com gasto.','Contas fixas'],metas:['Um passo de cada vez.','Transforme seus objetivos em metas de economia.','Minhas metas'],cofrinhos:['Seu dinheiro vai ganhar destino.','Cofrinhos livres e desafios Woodbox com cartelas interativas.','Cofrinhos'],carteiras:['Pontos, saldos e criptomoedas.','Organize valores de outros aplicativos e faça conversões de referência.','Apps e moedas'],ajuda:['Aprenda a usar.','Seu guia de uso e as opções para proteger seus dados.','Como usar']};
     const header=titleMap[view];
     $('#pageTitle').textContent=header[0];$('#pageSubtitle').textContent=header[1];$('#currentCrumb').textContent=header[2];
     $$('.view').forEach(el=>el.classList.toggle('active',el.id===`view-${view}`));
@@ -112,10 +139,11 @@
     else if(view==='orcamento')renderBudgets();
     else if(view==='contas')renderBills();
     else if(view==='metas')renderGoals();
-    else if(view==='cofrinhos')renderCoffers();
+    else if(view==='cofrinhos'){renderCoffers();renderYieldSimulator();}
+    else if(view==='carteiras')renderWallets();
   }
   function navigate(next) {
-    if(!['painel','lancamentos','orcamento','contas','metas','cofrinhos','ajuda'].includes(next))return;
+    if(!['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','ajuda'].includes(next))return;
     view=next;
     history.replaceState(null,'',`#${next}`);
     $('#sidebar').classList.remove('open');$('#mobileShade').hidden=true;$('#mobileMenu').setAttribute('aria-expanded','false');
@@ -140,7 +168,7 @@
     $('#annualChart').setAttribute('aria-label',`Ano ${db.settings.year}. ${year.map((d,i)=>`${SHORT_MONTHS[i]}: entradas ${money(d.income)}, gastos ${money(d.expense)}, guardado ${money(d.saving)}`).join('; ')}`);
   }
   function renderCategories(d) {
-    const cats=EXPENSE_CATS.map((cat,i)=>({name:cat,value:dec(d.tx.filter(t=>t.type==='Gasto'&&t.category===cat).reduce((s,t)=>s+t.amount,0)),color:CAT_COLORS[i]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+    const cats=expenseCats().map((cat,i)=>({name:cat,value:dec(d.tx.filter(t=>t.type==='Gasto'&&t.category===cat).reduce((s,t)=>s+t.amount,0)),color:CAT_COLORS[i%CAT_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
     if (!cats.length) {$('#categoryChart').innerHTML='<div class="empty-state"><span class="empty-symbol">◉</span>Registre seus gastos para visualizar<br> a distribuição por categoria.</div>';return;}
     const total=cats.reduce((s,c)=>s+c.value,0);let offset=0;
     const stops=cats.map(c=>{const from=offset;offset+=(c.value/total)*100;return `${c.color} ${from.toFixed(2)}% ${offset.toFixed(2)}%`;}).join(', ');
@@ -151,9 +179,28 @@
     const items=sortedTransactions(d.tx).slice(0,5);
     $('#recentTransactions').innerHTML=items.length?`<div class="activity-list">${items.map(t=>{const cl=t.type==='Entrada'||t.type==='Resgate'?'income':t.type==='Gasto'?'expense':'saving';return `<div class="activity-item"><span class="activity-icon ${cl}">${t.type==='Entrada'||t.type==='Resgate'?'↗':t.type==='Gasto'?'↘':'◎'}</span><div class="activity-item-content"><strong>${esc(t.description)}</strong><small>${fmtDate(t.date)} · ${esc(t.category)}</small></div><span class="activity-value ${cl}">${t.type==='Entrada'||t.type==='Resgate'?'+':t.type==='Gasto'?'-':'↘ '}${money(t.amount)}</span></div>`}).join('')}</div>`:'<div class="empty-state"><span class="empty-symbol">⇄</span>Nenhum lançamento neste mês.<br>Use “Novo lançamento” para começar.</div>';
   }
+  // ===== CONTAS FIXAS: avisos no painel inicial =====
+  // Lógica de prazos isolada em assets/js/contas-prioridades.js.
+  function billPriorityBadge(priority) {
+    return `<span class="bill-priority-badge priority--${priority.tone}" title="${esc(priority.description)}">${esc(priority.label)}</span>`;
+  }
   function renderUpcomingBills() {
-    const bills=db.bills.filter(b=>b.active).sort((a,b)=>a.day-b.day).slice(0,5);
-    $('#upcomingBills').innerHTML=bills.length?`<div class="activity-list">${bills.map(b=>`<div class="activity-item"><span class="activity-icon">▤</span><div class="activity-item-content"><strong>${esc(b.name)}</strong><small>Dia ${String(b.day).padStart(2,'0')} · ${esc(b.category)}</small></div><span class="activity-value">${money(b.amount)}</span></div>`).join('')}</div>`:'<div class="empty-state"><span class="empty-symbol">▤</span>Você ainda não cadastrou<br>contas fixas mensais.</div>';
+    const priorityRules=window.ControlePrioridadeContas;
+    const referenceDate=new Date(); // Prazo real: independe do mês filtrado no painel.
+    const bills=priorityRules.sortBills(db.bills.filter(b=>b.active),referenceDate).slice(0,5);
+    $('#upcomingBills').innerHTML=bills.length
+      ? `<div class="activity-list">${bills.map(b=>{
+          const priority=priorityRules.getPriority(b,referenceDate);
+          return `<div class="activity-item bill-upcoming-entry">
+            <span class="activity-icon priority--${priority.tone}" aria-hidden="true">▤</span>
+            <div class="activity-item-content">
+              <strong>${esc(b.name)}</strong>
+              <small>${esc(b.category)} · Vencimento ${priority.dueText}</small>
+            </div>
+            <div class="bill-upcoming-right"><span class="activity-value">${money(b.amount)}</span>${billPriorityBadge(priority)}</div>
+          </div>`;
+        }).join('')}</div>`
+      : '<div class="empty-state"><span class="empty-symbol">▤</span>Você ainda não cadastrou<br>contas fixas mensais ativas.</div>';
   }
   function renderTransactions() {
     const term=$('#transactionSearch').value.toLocaleLowerCase('pt-BR').trim();
@@ -171,24 +218,48 @@
   }
   function renderBudgets() {
     const budget=db.budgets[monthKey()]||{};
-    const spent=Object.fromEntries(EXPENSE_CATS.map(cat=>[cat,dec(db.transactions.filter(t=>t.type==='Gasto'&&txInMonth(t)&&t.category===cat).reduce((sum,t)=>sum+t.amount,0))]));
-    const setCats=EXPENSE_CATS.filter(cat=>Object.hasOwn(budget,cat));
+    const spent=Object.fromEntries(expenseCats().map(cat=>[cat,dec(db.transactions.filter(t=>t.type==='Gasto'&&txInMonth(t)&&t.category===cat).reduce((sum,t)=>sum+t.amount,0))]));
+    const setCats=expenseCats().filter(cat=>Object.hasOwn(budget,cat));
     const limit=dec(setCats.reduce((sum,cat)=>sum+budget[cat],0));
     const spentTotal=dec(Object.values(spent).reduce((a,b)=>a+b,0));
-    $('#budgetOverview').innerHTML=infoCard('Limites definidos',money(limit),`${setCats.length} de ${EXPENSE_CATS.length} categorias`)+infoCard('Gasto real do mês',money(spentTotal),'Somente lançamentos do tipo Gasto')+infoCard('Diferença planejado − gasto',money(limit-spentTotal),limit-spentTotal<0?'Acima do total definido':'Atenção às categorias sem teto',limit-spentTotal<0?'alert':'positive');
-    $('#budgetRows').innerHTML=EXPENSE_CATS.map(cat=>{
+    $('#budgetOverview').innerHTML=infoCard('Limites definidos',money(limit),`${setCats.length} de ${expenseCats().length} categorias`)+infoCard('Gasto real do mês',money(spentTotal),'Somente lançamentos do tipo Gasto')+infoCard('Diferença planejado − gasto',money(limit-spentTotal),limit-spentTotal<0?'Acima do total definido':'Atenção às categorias sem teto',limit-spentTotal<0?'alert':'positive');
+    $('#budgetRows').innerHTML=expenseCats().map(cat=>{
       const exists=Object.hasOwn(budget,cat),target=exists?budget[cat]:0,actual=spent[cat];
       const ratio=target>0?actual/target:0;
       const percent=Math.min(100,ratio*100);
       const situation=!exists?'Sem limite':target===0?(actual>0?'Acima do teto':'Teto zero'):ratio>1?'Acima do teto':ratio>=.8?'Perto do limite':'Dentro do limite';
       const color=ratio>1||target===0&&exists&&actual>0?'over':ratio>=.8?'warn':'ok';
-      return `<div class="budget-row"><div class="budget-cat">${esc(cat)}</div><input aria-label="Teto mensal de ${esc(cat)}" data-budget-cat="${esc(cat)}" type="number" min="0" max="1000000000" step="0.01" placeholder="Definir teto" value="${exists?target:''}"><div class="budget-number">${money(actual)} gastos</div><div class="budget-progress-wrap"><div class="budget-progress"><span class="${color}" style="width:${percent}%"></span></div><small>${exists?`${target>0?(ratio*100).toFixed(0):actual?'Acima do teto':'0'}% utilizado · ${money(target-actual)} disponível`:'Nenhum limite definido'}</small></div><div class="budget-status ${situation==='Acima do teto'?'over':color==='ok'&&exists?'ok':''}">${situation}</div></div>`;
+      return `<div class="budget-row"><div class="budget-cat"><span>${esc(cat)}</span>${db.customCategories.includes(cat)?`<div class="budget-cat-actions"><button type="button" class="action-small" data-edit-category="${esc(cat)}" aria-label="Renomear categoria ${esc(cat)}">Editar</button><button type="button" class="action-small danger" data-delete-category="${esc(cat)}" aria-label="Excluir categoria ${esc(cat)}">✕</button></div>`:''}</div><input aria-label="Teto mensal de ${esc(cat)}" data-budget-cat="${esc(cat)}" type="number" min="0" max="1000000000" step="0.01" placeholder="Definir teto" value="${exists?target:''}"><div class="budget-number">${money(actual)} gastos</div><div class="budget-progress-wrap"><div class="budget-progress"><span class="${color}" style="width:${percent}%"></span></div><small>${exists?`${target>0?(ratio*100).toFixed(0):actual?'Acima do teto':'0'}% utilizado · ${money(target-actual)} disponível`:'Nenhum limite definido'}</small></div><div class="budget-status ${situation==='Acima do teto'?'over':color==='ok'&&exists?'ok':''}">${situation}</div></div>`;
     }).join('');
   }
+  // ===== CONTAS FIXAS: tabela e cores de prioridade =====
   function renderBills() {
+    const priorityRules=window.ControlePrioridadeContas;
+    const referenceDate=new Date();
     const active=db.bills.filter(b=>b.active);
-    $('#billsStats').innerHTML=infoCard('Total previsto no mês',money(fixedTotal()),'Não desconta do saldo')+infoCard('Contas ativas',String(active.length),`${db.bills.length} cadastradas`)+infoCard('Contas pausadas',String(db.bills.length-active.length),'Fora da previsão');
-    $('#billsBody').innerHTML=db.bills.length? [...db.bills].sort((a,b)=>a.day-b.day).map(b=>`<tr><td class="main-cell">${esc(b.name)}</td><td>${esc(b.category)}</td><td>Dia ${String(b.day).padStart(2,'0')}</td><td class="right"><strong>${money(b.amount)}</strong></td><td><span class="pill ${b.active?'income':'inactive'}">${b.active?'Ativa':'Pausada'}</span></td><td class="right"><div class="actions"><button class="action-small" data-edit-bill="${esc(b.id)}" type="button">Editar</button><button class="action-small danger" data-delete-bill="${esc(b.id)}" type="button">✕</button></div></td></tr>`).join(''):'<tr><td colspan="6" class="empty-row">Nenhuma conta cadastrada. Use “Adicionar conta” para começar.</td></tr>';
+    const urgent=active.filter(b=>priorityRules.getPriority(b,referenceDate).days<=1).length;
+    $('#billsStats').innerHTML=
+      infoCard('Total previsto no mês',money(fixedTotal()),'Previsão, não pagamento confirmado')+
+      infoCard('Vencem hoje ou amanhã',String(urgent),'Prioridade vermelha')+
+      infoCard('Contas ativas',String(active.length),`${db.bills.length-active.length} pausada(s)`);
+
+    // Exibe primeiro a próxima conta a vencer; as pausadas ficam no final.
+    const ordered=priorityRules.sortBills(db.bills,referenceDate);
+    $('#billsBody').innerHTML=ordered.length ? ordered.map(b=>{
+      const priority=priorityRules.getPriority(b,referenceDate);
+      return `<tr class="bill-row bill-row--${priority.tone}">
+        <td class="main-cell">${esc(b.name)}</td>
+        <td>${esc(b.category)}</td>
+        <td class="bill-due-cell"><strong>${b.active?priority.dueText:'—'}</strong><small>Todo dia ${String(b.day).padStart(2,'0')}</small></td>
+        <td>${billPriorityBadge(priority)}</td>
+        <td class="right"><strong>${money(b.amount)}</strong></td>
+        <td><span class="pill ${b.active?'income':'inactive'}">${b.active?'Ativa':'Pausada'}</span></td>
+        <td class="right"><div class="actions">
+          <button class="action-small" data-edit-bill="${esc(b.id)}" type="button">Editar</button>
+          <button class="action-small danger" data-delete-bill="${esc(b.id)}" type="button" aria-label="Excluir conta ${esc(b.name)}">✕</button>
+        </div></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" class="empty-row">Nenhuma conta cadastrada. Use “Adicionar conta” para começar.</td></tr>';
   }
   function renderGoals() {
     const goalIds=activeGoalIds();
@@ -236,6 +307,101 @@
       <div class="coffer-history"><h3>Movimentações do cofrinho</h3>${records.length?records.slice(0,15).map(t=>`<div class="coffer-history-line"><div><strong>${esc(t.description)}</strong><small>${fmtDate(t.date)}</small></div><b class="${t.type==='Resgate'?'currency-expense':'currency-income'}">${t.type==='Resgate'?'-':'+'}${money(t.amount)}</b></div>`).join(''):'<p>Ainda não há depósitos. O valor inicial, caso informado, já está no saldo e não é um lançamento do mês.</p>'}</div><p class="coffer-explain">Depósitos são registrados como Reserva. Retiradas são Resgates: voltam ao saldo disponível, mas <strong>não são novas receitas</strong>.</p></section>`;
     }
   }
+  // ===== 03-B. SIMULADOR CDI E TESOURO SELIC (APENAS PROJEÇÕES) =====
+  // Matemática e consulta BCB ficam em assets/js/rendimentos-simulador.js.
+  const yieldEngine = window.KaykoRendimentos;
+  const getYieldSettings = () => db.settings.investmentSimulator ||= yieldEngine.normalize(null);
+  const fmtPercent = n => new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(n) + '%';
+  function yieldPrincipal(p) {
+    if(p.source.startsWith('coffer:')) {
+      const c=db.coffers.find(c=>c.id===p.source.slice(7));
+      if(c) return Math.max(0,cofferBalance(c));
+    }
+    return p.principal;
+  }
+  function renderYieldSimulator() {
+    const p=getYieldSettings();
+    const source=$('#yieldSource');
+    source.innerHTML='<option value="manual">Valor informado por mim</option>'+db.coffers.map(c=>`<option value="coffer:${esc(c.id)}">Cofrinho · ${esc(c.name)}</option>`).join('');
+    if(p.source!=='manual'&&!db.coffers.some(c=>`coffer:${c.id}`===p.source))p.source='manual';
+    source.value=p.source;
+    renderYieldInputs();
+    renderYieldResults();
+  }
+  function renderYieldInputs() {
+    const p=getYieldSettings(), fromCoffer=p.source!=='manual';
+    $('#yieldSource').value=p.source;
+    $('#yieldPrincipal').value=yieldPrincipal(p);
+    $('#yieldPrincipal').disabled=fromCoffer;
+    $('#yieldPrincipal').title=fromCoffer?'Para editar o valor, selecione “Valor informado por mim”.':'';
+    $('#yieldPeriodUnit').value=p.periodUnit;
+    $('#yieldPeriodCount').max=p.periodUnit==='days'?'2520':'360';
+    $('#yieldPeriodCount').value=p.periodCount;
+    $('#yieldCdiAnnual').value=Number(p.cdiAnnual.toFixed(4));
+    $('#yieldSelicAnnual').value=Number(p.selicAnnual.toFixed(4));
+    $('#yieldCdiPercent').value=p.cdiPercent;
+  }
+  function renderYieldResults() {
+    const p=getYieldSettings();
+    const result=yieldEngine.compare(p,yieldPrincipal(p));
+    const duration=p.periodUnit==='days'?`${p.periodCount} dia(s) útil(eis)`:`${p.periodCount} mês(es)`;
+    $('#yieldResults').innerHTML=[
+      {name:`Aplicação a ${fmtPercent(p.cdiPercent)} do CDI`,rate:`CDI anual: ${fmtPercent(p.cdiAnnual)}`,data:result.cdi,icon:'↗'},
+      {name:'Tesouro Selic (estimado)',rate:`Selic anual: ${fmtPercent(p.selicAnnual)}`,data:result.treasury,icon:'◎'}
+    ].map((item,i)=>`<article class="yield-result-card ${i===0?'yield-cdi':'yield-treasury'}">
+      <div class="yield-result-head"><span class="yield-result-mark" aria-hidden="true">${item.icon}</span><div><h3>${item.name}</h3><small>${item.rate}</small></div></div>
+      <div class="yield-result-main"><span>Rendimento bruto em ${duration}</span><strong>${money(item.data.grossYield)}</strong></div>
+      <div class="yield-result-foot"><span>Saldo inicial: ${money(result.principal)}</span><strong>Total projetado: ${money(item.data.grossTotal)}</strong></div>
+    </article>`).join('');
+    $('#yieldQuickResults').innerHTML=`<h3>Quanto poderia render por dia e por mês?</h3>
+      <div class="yield-quick-grid"><div><span>1 dia útil</span><strong>CDI: ${money(result.quick.cdiDay)}</strong><strong>Tesouro Selic: ${money(result.quick.treasuryDay)}</strong></div>
+      <div><span>1 mês (≈ 21 dias úteis)</span><strong>CDI: ${money(result.quick.cdiMonth)}</strong><strong>Tesouro Selic: ${money(result.quick.treasuryMonth)}</strong></div></div>
+      <small>Projeção sobre o saldo de ${money(result.principal)} com taxas constantes. Não considera feriados, impostos e taxas.</small>`;
+    $('#yieldRateStatus').textContent=p.rateSource==='bcb'
+      ? `Banco Central: ${p.rateDate || 'última consulta'} · taxas diárias anualizadas para simulação. Você pode ajustá-las manualmente.`
+      : p.rateSource==='manual'
+        ? 'Taxas informadas manualmente. Confira as condições do seu investimento antes de comparar.'
+        : 'Taxas iniciais de 10% ao ano são APENAS EXEMPLOS, não cotações atuais. Altere-as ou consulte o Banco Central.';
+  }
+  function handleYieldInput(e) {
+    const el=e.target;
+    const p=getYieldSettings();
+    if(el.id==='yieldSource'){
+      p.source=el.value==='manual'||db.coffers.some(c=>el.value===`coffer:${c.id}`)?el.value:'manual';
+      save();renderYieldInputs();renderYieldResults();return;
+    }
+    if(el.id==='yieldPeriodUnit'){
+      p.periodUnit=el.value==='days'?'days':'months';
+      p.periodCount=Math.min(p.periodCount,p.periodUnit==='days'?2520:360);
+      save();renderYieldInputs();renderYieldResults();return;
+    }
+    const controls={yieldPrincipal:['principal',0,1e12],yieldPeriodCount:['periodCount',1,p.periodUnit==='days'?2520:360],yieldCdiAnnual:['cdiAnnual',0,100],yieldCdiPercent:['cdiPercent',0,200],yieldSelicAnnual:['selicAnnual',0,100]};
+    const config=controls[el.id];if(!config)return;
+    const [field,min,max]=config;
+    const raw=el.value.trim();if(raw==='')return;
+    const value=Number(raw);
+    if(!Number.isFinite(value)||value<min||value>max||field==='periodCount'&&!Number.isInteger(value))return;
+    p[field]=value;
+    if(field==='cdiAnnual'||field==='selicAnnual'){p.rateSource='manual';p.rateDate='';}
+    save();renderYieldResults();
+  }
+  async function updateYieldRates() {
+    const button=$('#yieldGetBcbRates');
+    button.disabled=true;
+    button.textContent='Consultando…';
+    $('#yieldRateStatus').textContent='Consultando indicadores oficiais no Banco Central…';
+    try{
+      const r=await yieldEngine.fetchRates();
+      const p=getYieldSettings();
+      p.cdiAnnual=r.cdiAnnual;p.selicAnnual=r.selicAnnual;p.rateDate=r.rateDate;p.rateSource='bcb';
+      save();renderYieldInputs();renderYieldResults();notify('Taxas do Banco Central atualizadas para a simulação.');
+    }catch(error){
+      renderYieldResults();
+      $('#yieldRateStatus').textContent='Não foi possível buscar as taxas agora. Confira a conexão ou preencha as taxas manualmente. '+(error?.message||'');
+      notify('Consulta indisponível. Use as taxas manuais.',true);
+    }finally{button.disabled=false;button.textContent='↻ Consultar Banco Central';}
+  }
+
   function handleCofferCell(cofferId,slot,date) {
     const c=db.coffers.find(c=>c.id===cofferId&&c.mode==='woodbox');if(!c)return;
     const cells=cofferCells(c);if(!Number.isInteger(slot)||slot<0||slot>=cells.length)return;
@@ -262,10 +428,11 @@
   const input = (name,type,value,required=false,extra='') => `<input id="form-${name}" name="${name}" type="${type}" ${required?'required':''} ${extra} value="${esc(value)}">`;
   const select = (name,values,value,extra='') => `<select id="form-${name}" name="${name}" ${extra}>${values.map(v=>`<option value="${esc(v[0])}" ${v[0]===value?'selected':''}>${esc(v[1])}</option>`).join('')}</select>`;
   const choices=arr=>arr.map(c=>[c,c]);
+  // ===== 03. FORMULÁRIOS DE CADASTRO E EDIÇÃO =====
   function openModal(kind,id=null,operation='deposit') {
     previousFocus=document.activeElement;
     editing={kind,id,operation};
-    const found=kind==='transaction'?db.transactions.find(x=>x.id===id):kind==='bill'?db.bills.find(x=>x.id===id):kind==='goal'?db.goals.find(x=>x.id===id):kind==='coffer'||kind==='cofferMove'?db.coffers.find(x=>x.id===id):null;
+    const found=kind==='transaction'?db.transactions.find(x=>x.id===id):kind==='bill'?db.bills.find(x=>x.id===id):kind==='goal'?db.goals.find(x=>x.id===id):kind==='coffer'||kind==='cofferMove'?db.coffers.find(x=>x.id===id):kind==='wallet'?db.wallets.find(x=>x.id===id):kind==='category'&&id?{name:id}:null;
     if(id&&!found)return;
     if(kind==='transaction'&&found?.cofferId){notify('Movimentações do cofrinho são gerenciadas na aba Cofrinhos.',true);return;}
     $('#dialogEyebrow').textContent=id?'EDITAR REGISTRO':'NOVO REGISTRO';
@@ -278,7 +445,7 @@
     } else if(kind==='bill') {
       const b=found||{name:'',category:'Contas',day:10,amount:'',active:true};
       $('#dialogTitle').textContent=id?'Editar conta fixa':'Nova conta fixa';
-      $('#formFields').innerHTML=field('name','Nome da conta *',input('name','text',b.name,true,'maxlength="100" placeholder="Ex.: Internet"'),true)+field('category','Categoria',select('category',choices(EXPENSE_CATS),b.category))+field('day','Dia do vencimento *',input('day','number',b.day,true,'min="1" max="31" step="1"'))+field('amount','Valor previsto (R$) *',input('amount','number',b.amount,true,'min="0.01" max="1000000000" step="0.01"'))+field('active','Situação',select('active',[['true','Ativa'],['false','Pausada']],String(b.active)),true,'Previsões não são descontadas automaticamente do saldo.');
+      $('#formFields').innerHTML=field('name','Nome da conta *',input('name','text',b.name,true,'maxlength="100" placeholder="Ex.: Internet"'),true)+field('category','Categoria',select('category',choices(expenseCats()),b.category))+field('day','Dia do vencimento *',input('day','number',b.day,true,'min="1" max="31" step="1"'))+field('amount','Valor previsto (R$) *',input('amount','number',b.amount,true,'min="0.01" max="1000000000" step="0.01"'))+field('active','Situação',select('active',[['true','Ativa'],['false','Pausada']],String(b.active)),true,'Previsões não são descontadas automaticamente do saldo.');
     } else if(kind==='goal') {
       const g=found||{name:'',target:'',initial:0};
       $('#dialogTitle').textContent=id?'Editar meta':'Nova meta';
@@ -301,6 +468,22 @@
       ['mode','plan','count','unit'].forEach(x=>$('#form-'+x).addEventListener('change',refresh));
       ['count','unit'].forEach(x=>$('#form-'+x).addEventListener('input',refresh));
       refresh();
+    } else if(kind==='wallet') {
+      const w=found||{app:'',kind:'money',currency:'BRL',balance:0,pointsPerUsd:0,manualUsdPrice:0};
+      $('#dialogTitle').textContent=id?'Editar saldo externo':'Adicionar app ou saldo';
+      $('#formFields').innerHTML=field('app','Nome do aplicativo *',input('app','text',w.app,true,'maxlength="100" placeholder="Ex.: aplicativo de recompensas"'),true)
+       +field('kind','O que deseja acompanhar?',select('kind',[['money','Saldo em moeda'],['points','Pontos / recompensas'],['crypto','Criptomoeda']],w.kind),true)
+       +field('balance','Quantidade ou saldo *',input('balance','number',w.balance,true,'min="0" max="1000000000000" step="any" placeholder="Ex.: 250.5"'))
+       +field('currency','Moeda do saldo',select('currency',FIAT_CURRENCIES.map(c=>[c,c]),FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL'))
+       +field('crypto','Criptomoeda',select('crypto',Object.keys(CRYPTO_ASSETS).map(c=>[c,`${c} · ${CRYPTO_ASSETS[c][0]}`]),Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:'BTC'))
+       +field('pointsPerUsd','Quantos pontos equivalem a US$ 1?',input('pointsPerUsd','number',w.pointsPerUsd||'',false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 1000"'),true,'Exemplo: 1000 pontos = US$ 1. Deixe vazio se o app não informar taxa de troca.')
+       +field('manualUsdPrice','Cotação manual (US$ por 1 unidade)',input('manualUsdPrice','number',w.manualUsdPrice||'',false,'min="0" max="1000000000000" step="any" placeholder="Opcional"'),true,'Se preenchida, substitui a cotação automática da criptomoeda.');
+      const refresh=refreshWalletFields;
+      $('#form-kind').addEventListener('change',refresh);
+      refresh();
+    } else if(kind==='category') {
+      $('#dialogTitle').textContent=id?'Renomear categoria':'Nova categoria de orçamento';
+      $('#formFields').innerHTML=field('name','Nome da categoria *',input('name','text',found?.name||'',true,'maxlength="60" placeholder="Ex.: Pets, Assinaturas, Beleza"'),true,'A categoria também ficará disponível nos gastos e nas contas fixas.');
     } else if(kind==='cofferMove') {
       if(found.mode!=='free')return;
       const withdraw=operation==='withdraw';
@@ -309,6 +492,14 @@
     }
     $('#modalOverlay').hidden=false;document.body.style.overflow='hidden';
     setTimeout(()=>{const el=$('#entityForm input, #entityForm select');if(el)el.focus()},10);
+  }
+  function refreshWalletFields() {
+    const type=$('#form-kind').value;
+    $('#form-currency').closest('.form-field').hidden=type!=='money';
+    $('#form-crypto').closest('.form-field').hidden=type!=='crypto';
+    $('#form-pointsPerUsd').closest('.form-field').hidden=type!=='points';
+    $('#form-manualUsdPrice').closest('.form-field').hidden=type!=='crypto';
+    $('#form-balance').closest('.form-field').querySelector('label').textContent=type==='points'?'Quantidade de pontos *':type==='crypto'?'Quantidade de criptomoedas *':'Saldo no aplicativo *';
   }
   function refreshCofferForm(c) {
     const wood=$('#form-mode').value==='woodbox';
@@ -324,7 +515,7 @@
   }
   function refreshTransactionFields(oldCategory=null) {
     const type=$('#form-type').value;
-    const categories=type==='Entrada'?INCOME_CATS:type==='Reserva'||type==='Resgate'?['Economia']:EXPENSE_CATS;
+    const categories=type==='Entrada'?INCOME_CATS:type==='Reserva'||type==='Resgate'?['Economia']:expenseCats();
     const category=$('#form-category');
     category.innerHTML=choices(categories).map(([value,label])=>`<option value="${esc(value)}" ${oldCategory===value?'selected':''}>${esc(label)}</option>`).join('');
     const goal=$('#form-goalId');
@@ -338,6 +529,7 @@
     const existing=coffers.find(c=>c.id===id);
     return existing&&cofferTransactions(id).length ? existing.mode : (proposed==='woodbox'?'woodbox':'free');
   }
+  // ===== 04. SALVAR OS REGISTROS =====
   function handleSubmit(event) {
     event.preventDefault();if(!editing)return;
     const form=$('#entityForm');
@@ -350,6 +542,33 @@
       if(!fields.description.trim()){notify('Preencha a descrição.',true);return;}
       const record={id:id||uid(),date:fields.date,type:fields.type,category:fields.category,description:fields.description.trim().slice(0,120),payment:fields.type==='Reserva'?'':fields.payment,amount,goalId:fields.type==='Reserva'?fields.goalId||'':'',cofferId:'',boxSlot:null,notes:fields.notes?.trim().slice(0,300)||''};
       if(id)db.transactions=db.transactions.map(t=>t.id===id?record:t);else db.transactions.push(record);
+    }else if(kind==='wallet'){
+      const balance=Number(fields.balance),rate=Number(fields.pointsPerUsd||0),manual=Number(fields.manualUsdPrice||0);
+      if(!fields.app?.trim()||![balance,rate,manual].every(v=>Number.isFinite(v)&&v>=0&&v<=1e12)){
+        notify('Informe um nome e valores válidos, sem números negativos.',true);return;
+      }
+      if(balance>1e12||rate>1e12||manual>1e12){notify('Valor maior que o permitido.',true);return;}
+      const kind=fields.kind;
+      const currency=kind==='crypto'?fields.crypto:kind==='points'?'PTS':fields.currency;
+      if(!['money','points','crypto'].includes(kind)||(kind==='money'&&!FIAT_CURRENCIES.includes(currency))||(kind==='crypto'&&!Object.hasOwn(CRYPTO_ASSETS,currency))){notify('Selecione um tipo de saldo válido.',true);return;}
+      if(kind==='points'&&fields.pointsPerUsd?.trim()&&rate<=0){notify('Informe uma taxa de pontos maior que zero.',true);return;}
+      const record={id:id||uid(),app:fields.app.trim().slice(0,100),kind,currency,balance:precise(balance),pointsPerUsd:kind==='points'?precise(rate):0,manualUsdPrice:kind==='crypto'?precise(manual):0};
+      if(id)db.wallets=db.wallets.map(w=>w.id===id?record:w);else db.wallets.push(record);
+    }else if(kind==='category'){
+      const name=fields.name?.trim().replace(/\s+/g,' ').slice(0,60);
+      if(!name){notify('Digite um nome para a categoria.',true);return;}
+      if(expenseCats().some(c=>c.toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR')&&c!==id)){notify('Essa categoria já existe.',true);return;}
+      if(id){
+        if(name!==id){
+          db.customCategories=db.customCategories.map(c=>c===id?name:c);
+          db.transactions.forEach(t=>{if(t.category===id&&t.type==='Gasto')t.category=name;});
+          db.bills.forEach(b=>{if(b.category===id)b.category=name;});
+          for(const budget of Object.values(db.budgets)){if(Object.hasOwn(budget,id)){budget[name]=budget[id];delete budget[id];}}
+        }
+      }else{
+        if(db.customCategories.length>=100){notify('Limite de 100 categorias extras atingido.',true);return;}
+        db.customCategories.push(name);
+      }
     }else if(kind==='bill'){
       const amount=parseAmount(fields.amount),day=Number(fields.day);
       if(!fields.name.trim()||amount===null||!Number.isInteger(day)||day<1||day>31){notify('Preencha nome, dia de 1 a 31 e valor maior que zero.',true);return;}
@@ -404,9 +623,24 @@
     if(kind==='goal')db.transactions.forEach(t=>{if(t.goalId===id)t.goalId=''});
     save();render();notify('Registro excluído.');
   }
+  function deleteWallet(id) {
+    const w=db.wallets.find(w=>w.id===id);if(!w)return;
+    if(!confirm(`Remover o aplicativo "${w.app}" e o saldo registrado?`))return;
+    db.wallets=db.wallets.filter(w=>w.id!==id);save();render();notify('Saldo externo removido.');
+  }
+  function deleteCategory(name) {
+    if(!db.customCategories.includes(name))return;
+    if(db.transactions.some(t=>t.type==='Gasto'&&t.category===name)||db.bills.some(b=>b.category===name)){
+      notify('Há lançamentos ou contas nesta categoria. Edite esses registros antes de excluí-la.',true);return;
+    }
+    if(!confirm(`Excluir a categoria "${name}"? Os limites dessa categoria também serão removidos dos orçamentos.`))return;
+    db.customCategories=db.customCategories.filter(c=>c!==name);
+    for(const budget of Object.values(db.budgets))delete budget[name];
+    save();renderBudgets();notify('Categoria removida.');
+  }
   function saveBudget(inputEl) {
     const cat=inputEl.dataset.budgetCat;
-    if(!EXPENSE_CATS.includes(cat))return;
+    if(!expenseCats().includes(cat))return;
     const key=monthKey();const value=inputEl.value.trim();
     const number=Number(value);
     if(value!==''&&(!Number.isFinite(number)||number<0||number>1e9)){notify('Informe um teto válido (zero ou maior).',true);renderBudgets();return;}
@@ -430,6 +664,7 @@
     if(parsed===null){notify('Digite um valor válido, como 300 ou 300,50.',true);return;}
     db.settings.monthlySavingsTarget=parsed;save();renderDashboard();notify('Meta mensal atualizada.');
   }
+  // ===== 05. BACKUP, IMPORTAÇÃO E EXPORTAÇÃO CSV =====
   function downloadFile(name,content,type) {
     const blob=new Blob([content],{type});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -479,7 +714,7 @@
       if(!confirm('Importar este backup? TODOS os dados deste navegador serão substituídos pelos do arquivo. Exporte seus dados atuais antes de continuar.'))return;
       const previous=db;db=candidate;
       if(!save()){db=previous;return;}
-      render();closeBackupCenter();notify('Backup importado com sucesso.');
+      applyTheme();render();closeBackupCenter();notify('Backup importado com sucesso.');
     }catch(err){notify(err.message||'Não foi possível importar o backup.',true);}finally{$('#backupFile').value='';}
   }
   function csvProtect(value) {
@@ -496,6 +731,160 @@
     const text='\ufeff'+[header,...rows].map(row=>row.map(csvProtect).join(';')).join('\r\n');
     downloadFile(`lancamentos-${today()}.csv`,text,'text/csv;charset=utf-8');notify('CSV exportado para abrir no Excel.');
   }
+  // ===== 06. CÂMBIO E CRIPTOMOEDAS =====
+  // Cotações só para estimativas e conversões; nunca alteram lançamentos ou saldos cadastrados.
+  async function getJSON(url) {
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),12000);
+    try {
+      const response=await fetch(url,{signal:controller.signal,headers:{'Accept':'application/json'}});
+      if(!response.ok)throw new Error(`Serviço de cotações indisponível (${response.status}).`);
+      return await response.json();
+    }finally{clearTimeout(timer);}
+  }
+  function cachedQuote(key,ttl,loader) {
+    const old=rateCache.get(key);
+    if(old&&Date.now()-old.time<ttl)return old.promise;
+    const promise=loader().catch(err=>{if(rateCache.get(key)?.promise===promise)rateCache.delete(key);throw err;});
+    rateCache.set(key,{time:Date.now(),promise});
+    return promise;
+  }
+  async function fiatRate(from,to) {
+    if(from===to)return {rate:1,date:'mesma moeda'};
+    if(!FIAT_CURRENCIES.includes(from)||!FIAT_CURRENCIES.includes(to))throw new Error('Moeda não reconhecida.');
+    return cachedQuote(`fiat:${from}:${to}`,12*3600e3,async()=>{
+      const result=await getJSON(`https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`);
+      if(!Number.isFinite(Number(result.rate))||Number(result.rate)<=0)throw new Error('Cotação de câmbio inválida.');
+      return {rate:Number(result.rate),date:String(result.date||'não informada'),source:'Frankfurter'};
+    });
+  }
+  // ===== 06A. CRIPTO: seleção e fallback de provedores =====
+  // Implementação e links: assets/js/cotacoes-fontes.js
+  async function cryptoPrice(symbol) {
+    if(!Object.hasOwn(CRYPTO_ASSETS,symbol))throw new Error('Criptomoeda não reconhecida.');
+    const provider=window.KaykoCotacoes.validProvider(db.settings.cryptoQuoteSource);
+    return cachedQuote(`crypto:${provider}:${symbol}`,5*60e3,
+      ()=>window.KaykoCotacoes.priceUSD(symbol,provider,getJSON));
+  }
+  function updateQuoteReferenceLinks() {
+    const from=$('#conversionFrom').value;
+    const to=$('#conversionTo').value;
+    const crypto=[from,to].find(code=>Object.hasOwn(CRYPTO_ASSETS,code));
+    const links=window.KaykoCotacoes.referenceLinks(crypto);
+    $('#quoteReferenceLinks').innerHTML=links.map(link=>
+      `<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} ↗</a>`).join('');
+  }
+  function displayQuoteDate(value) {
+    if(!value||value==='não informada')return 'data não informada';
+    if(/^\d{4}-\d{2}-\d{2}$/.test(value))return fmtDate(value);
+    const date=new Date(value);
+    return Number.isNaN(date.getTime())?'data não informada':date.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+  }
+  function fillConverterOptions() {
+    const fiat=FIAT_CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+    const crypto=Object.entries(CRYPTO_ASSETS).map(([c,v])=>`<option value="${c}">${c} · ${esc(v[0])}</option>`).join('');
+    const options=`<optgroup label="Moedas tradicionais">${fiat}</optgroup><optgroup label="Criptomoedas">${crypto}</optgroup>`;
+    $('#conversionFrom').innerHTML=options;$('#conversionTo').innerHTML=options;
+    $('#conversionFrom').value='BRL';$('#conversionTo').value='USD';
+    updateQuoteReferenceLinks();
+  }
+  function applyTheme() {
+    const mode=db.settings.themeMode==='dark'?'dark':'light';
+    const palette=['current','blue','pink','purple'].includes(db.settings.themePalette)?db.settings.themePalette:'current';
+    document.documentElement.dataset.mode=mode;
+    document.documentElement.dataset.theme=palette;
+    document.documentElement.style.colorScheme=mode;
+    $('#themePalette').value=palette;
+    $('#themeModeToggle').setAttribute('aria-pressed',String(mode==='dark'));
+    $('#themeModeToggle').setAttribute('aria-label',mode==='dark'?'Ativar modo claro':'Ativar modo escuro');
+    $('#themeModeToggle .theme-mode-label').textContent=mode==='dark'?'Claro':'Escuro';
+    $('#themeModeToggle .theme-mode-icon').textContent=mode==='dark'?'☀':'☾';
+    $('meta[name="theme-color"]').setAttribute('content',mode==='dark'?(palette==='blue'?'#0d192e':'#121725'):palette==='blue'?'#edf5ff':palette==='pink'?'#fff4fa':palette==='purple'?'#f7f3ff':'#f5f7fb');
+  }
+  async function conversionUnitUSD(code) {
+    if(code==='USD')return {rate:1,source:'paridade USD',date:'—'};
+    if(FIAT_CURRENCIES.includes(code))return fiatRate(code,'USD');
+    return cryptoPrice(code);
+  }
+  let converterRequestId=0;
+  async function convertCurrencies() {
+    const amount=Number($('#conversionAmount').value);
+    const from=$('#conversionFrom').value,to=$('#conversionTo').value;
+    if(!Number.isFinite(amount)||amount<0||amount>1e12){notify('Informe uma quantidade válida para converter.',true);return;}
+    const token=++converterRequestId;
+    $('#conversionResult').textContent='Consultando cotação…';
+    $('#conversionRateLabel').textContent='Buscando informações dos provedores.';
+    $('#converterForm button[type="submit"]').disabled=true;
+    try {
+      let converted,details=[];
+      if(from===to){converted=amount;details=['Moedas iguais'];}
+      else if(FIAT_CURRENCIES.includes(from)&&FIAT_CURRENCIES.includes(to)){
+        const quote=await fiatRate(from,to);
+        converted=amount*quote.rate;details=[`Frankfurter · referência: ${displayQuoteDate(quote.date)}`];
+      }else {
+        const [base,quote]=await Promise.all([conversionUnitUSD(from),conversionUnitUSD(to)]);
+        converted=amount*base.rate/quote.rate;
+        details=[...new Set([base,quote].filter(x=>x.source!=='paridade USD').map(x=>`${x.source} · referência: ${displayQuoteDate(x.date)}`))];
+      }
+      if(!Number.isFinite(converted))throw new Error('O valor convertido excede o limite de cálculo.');
+      if(token!==converterRequestId)return;
+      const format=n=>amountLabel(n);
+      $('#conversionResult').textContent=`${format(amount)} ${from} ≈ ${format(converted)} ${to}`;
+      $('#conversionRateLabel').textContent=`1 ${from} ≈ ${format(amount===0?(from===to?1:converted||0):converted/(amount||1))} ${to} · ${details.join(' / ')}. Referência sem tarifas.`;
+      // Para quantia zero, a taxa deve ser calculada independentemente de seu valor.
+      if(amount===0&&from!==to)$('#conversionRateLabel').textContent=`Conversão de valor zero · ${details.join(' / ')}`;
+    }catch(err){
+      if(token!==converterRequestId)return;
+      $('#conversionResult').textContent='Não foi possível consultar esta cotação.';
+      $('#conversionRateLabel').textContent=`${err?.message||'Falha de conexão.'} Confira sua internet e tente novamente. Nenhum valor foi estimado.`;
+    }finally{if(token===converterRequestId)$('#converterForm button[type="submit"]').disabled=false;}
+  }
+  async function valueWalletInBRL(w) {
+    if(w.kind==='money'){
+      if(w.currency==='BRL')return {value:w.balance,detail:'Valor já registrado em reais',source:'Manual'};
+      const quote=await fiatRate(w.currency,'BRL');
+      return {value:w.balance*quote.rate,detail:`Frankfurter · ${displayQuoteDate(quote.date)}`,source:'Câmbio'};
+    }
+    if(w.kind==='points'){
+      if(!w.pointsPerUsd)return {value:null,detail:'Cadastre a taxa de pontos por US$ 1 para estimar em reais.'};
+      const usd=w.balance/w.pointsPerUsd;
+      const quote=await fiatRate('USD','BRL');
+      return {value:usd*quote.rate,detail:`≈ US$ ${amountLabel(usd)} · taxa de pontos manual; câmbio de ${displayQuoteDate(quote.date)}`,source:'Pontos'};
+    }
+    const manual=w.manualUsdPrice>0;
+    const quote=manual?{rate:w.manualUsdPrice,date:'manual'}:await cryptoPrice(w.currency);
+    const exchange=await fiatRate('USD','BRL');
+    return {value:w.balance*quote.rate*exchange.rate,detail:manual?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}; câmbio ${displayQuoteDate(exchange.date)}`:`${quote.source}: ${displayQuoteDate(quote.date)}; câmbio: ${displayQuoteDate(exchange.date)}`,source:manual?'Manual':'Cripto'};
+  }
+  let walletRenderToken=0;
+  function renderWallets() {
+    const token=++walletRenderToken;
+    const count=db.wallets.length;
+    const points=db.wallets.filter(w=>w.kind==='points');
+    $('#walletStats').innerHTML=infoCard('Estimativa convertida em reais',count?'Calculando…':'—','Somente saldos com conversão disponível')+infoCard('Aplicativos registrados',String(count),'Saldos externos, sem movimentação real')+infoCard('Apps de pontos',String(points.length),'Taxas de troca definidas por você');
+    $('#walletCards').innerHTML=count?db.wallets.map(w=>{
+      const label=w.kind==='money'?'Saldo em moeda':w.kind==='points'?'Recompensas e pontos':'Criptomoeda';
+      const display=w.kind==='money'?cashLabel(w.balance,w.currency):`${amountLabel(w.balance)} ${w.kind==='points'?'pontos':w.currency}`;
+      const desc=w.kind==='points'?(w.pointsPerUsd?`1 USD = ${amountLabel(w.pointsPerUsd)} pontos`:'Sem taxa de conversão cadastrada'):w.kind==='crypto'?(w.manualUsdPrice?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}`:'Preço de mercado sujeito a atualização'):`Moeda: ${w.currency}`;
+      return `<article class="wallet-card"><div class="wallet-card-top"><span class="wallet-type">${esc(label)}</span><span class="wallet-symbol">${w.kind==='money'?'💵':w.kind==='points'?'✦':'₿'}</span></div><h3>${esc(w.app)}</h3><strong class="wallet-balance">${esc(display)}</strong><p class="wallet-description">${esc(desc)}</p><div class="wallet-estimate" data-wallet-estimate="${esc(w.id)}">Calculando estimativa…</div><div class="wallet-actions"><button class="button button-outline" data-edit-wallet="${esc(w.id)}" type="button">Editar</button><button class="action-small danger" data-delete-wallet="${esc(w.id)}" type="button" aria-label="Excluir saldo do app ${esc(w.app)}">Excluir</button></div></article>`;
+    }).join(''):'<div class="panel empty-state wallet-empty"><span class="empty-symbol">◈</span>Você ainda não cadastrou saldos de outros aplicativos.<br>Adicione sua primeira conta de pontos, moedas ou cripto.</div>';
+    if(count)void refreshWalletValuations(token,[...db.wallets]);
+  }
+  async function refreshWalletValuations(token,wallets) {
+    const results=await Promise.all(wallets.map(async w=>{
+      try{return await valueWalletInBRL(w);}catch(err){return {value:null,detail:'Cotação indisponível. Verifique a conexão ou tente atualizar.'};}
+    }));
+    if(token!==walletRenderToken||view!=='carteiras')return;
+    let sum=0,valued=0;
+    for(let i=0;i<wallets.length;i++){
+      const w=wallets[i],result=results[i];
+      const el=Array.from($('#walletCards').querySelectorAll('[data-wallet-estimate]')).find(x=>x.dataset.walletEstimate===w.id);
+      if(el){el.innerHTML=result.value!==null&&Number.isFinite(result.value)?`<strong>≈ ${esc(money(result.value))}</strong><small>${esc(result.detail)}</small>`:`<strong>Sem estimativa</strong><small>${esc(result.detail)}</small>`;}
+      if(result.value!==null&&Number.isFinite(result.value)){sum+=result.value;valued++;}
+    }
+    $('#walletStats').innerHTML=infoCard('Estimativa convertida em reais',valued?money(sum):'—',`${valued} de ${wallets.length} saldo(s) com valor calculável · não é saldo disponível`)+infoCard('Aplicativos registrados',String(wallets.length),'Cadastro manual')+infoCard('Apps de pontos',String(wallets.filter(w=>w.kind==='points').length),'Taxa por US$ 1 configurável');
+  }
+  // ===== 07. INICIALIZAÇÃO E EVENTOS DO SITE =====
   function init() {
     load();
     $('#monthSelect').innerHTML=MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
@@ -506,6 +895,35 @@
     $('#transactionTypeFilter').addEventListener('change',()=>{if(view==='lancamentos')renderTransactions()});
     $('#allMonthsToggle').addEventListener('change',()=>{if(view==='lancamentos')renderTransactions()});
     $('#copyPreviousBudget').addEventListener('click',copyBudget);
+    $('#themePalette').addEventListener('change',e=>{db.settings.themePalette=e.target.value;applyTheme();save();});
+    $('#themeModeToggle').addEventListener('click',()=>{db.settings.themeMode=db.settings.themeMode==='dark'?'light':'dark';applyTheme();save();});
+    $('#converterForm').addEventListener('submit',e=>{e.preventDefault();void convertCurrencies();});
+    $('#cryptoQuoteSource').value=window.KaykoCotacoes.validProvider(db.settings.cryptoQuoteSource);
+    $('#cryptoQuoteSource').addEventListener('change',e=>{
+      db.settings.cryptoQuoteSource=window.KaykoCotacoes.validProvider(e.target.value);
+      rateCache.clear();save();if(view==='carteiras')renderWallets();
+      void convertCurrencies();
+    });
+    ['conversionFrom','conversionTo'].forEach(id=>$('#'+id).addEventListener('change',()=>updateQuoteReferenceLinks()));
+    $('#converterSwap').addEventListener('click',()=>{
+      const from=$('#conversionFrom');const to=$('#conversionTo');[from.value,to.value]=[to.value,from.value];updateQuoteReferenceLinks();void convertCurrencies();
+    });
+    $('#walletRefreshRates').addEventListener('click',()=>{rateCache.clear();renderWallets();});
+    // Controles do simulador atualizam só os resultados, sem refazer a tela inteira.
+    ['yieldSource','yieldPrincipal','yieldPeriodCount','yieldPeriodUnit','yieldCdiAnnual','yieldCdiPercent','yieldSelicAnnual'].forEach(id=>{
+      const el=$('#'+id);el.addEventListener('input',handleYieldInput);
+      if(el.tagName==='INPUT')el.addEventListener('change',()=>renderYieldInputs());
+    });
+    $('#yieldGetBcbRates').addEventListener('click',()=>{void updateYieldRates()});
+    fillConverterOptions();applyTheme();
+    // Se o site ficou aberto de um dia para o outro, recalcula os avisos ao voltar à aba.
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden){
+        if(view==='cofrinhos')renderYieldResults();
+        if(view==='contas')renderBills();
+        else if(view==='painel')renderUpcomingBills();
+      }
+    });
     $('#entityForm').addEventListener('submit',handleSubmit);
     $('#closeModal').addEventListener('click',closeModal);$('#cancelModal').addEventListener('click',closeModal);
     $('#modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')closeModal()});
@@ -537,22 +955,26 @@
     $('#mobileMenu').addEventListener('click',()=>{const opened=$('#sidebar').classList.toggle('open');$('#mobileShade').hidden=!opened;$('#mobileMenu').setAttribute('aria-expanded',String(opened))});
     $('#mobileShade').addEventListener('click',()=>{$('#sidebar').classList.remove('open');$('#mobileShade').hidden=true;$('#mobileMenu').setAttribute('aria-expanded','false')});
     document.addEventListener('click',e=>{
-      const elem=e.target.closest('button[data-view],button[data-action],[data-select-coffer],[data-coffer-cell],[data-coffer-move],[data-edit-coffer],[data-delete-coffer],[data-edit-transaction],[data-delete-transaction],[data-edit-bill],[data-delete-bill],[data-edit-goal],[data-delete-goal]');
+      const elem=e.target.closest('button[data-view],button[data-action],[data-edit-wallet],[data-delete-wallet],[data-edit-category],[data-delete-category],[data-select-coffer],[data-coffer-cell],[data-coffer-move],[data-edit-coffer],[data-delete-coffer],[data-edit-transaction],[data-delete-transaction],[data-edit-bill],[data-delete-bill],[data-edit-goal],[data-delete-goal]');
       if(!elem)return;
       if(elem.dataset.view){navigate(elem.dataset.view);return;}
+      if(elem.dataset.editWallet){openModal('wallet',elem.dataset.editWallet);return;}
+      if(elem.dataset.deleteWallet){deleteWallet(elem.dataset.deleteWallet);return;}
+      if(elem.dataset.editCategory){openModal('category',elem.dataset.editCategory);return;}
+      if(elem.dataset.deleteCategory){deleteCategory(elem.dataset.deleteCategory);return;}
       if(elem.dataset.selectCoffer){selectedCofferId=elem.dataset.selectCoffer;renderCoffers();return;}
       if(elem.dataset.cofferCell){handleCofferCell(elem.dataset.cofferCell,Number(elem.dataset.slot),$('#cofferDepositDate')?.value||today());return;}
       if(elem.dataset.cofferMove){openModal('cofferMove',elem.dataset.cofferMove,elem.dataset.moveType);return;}
       if(elem.dataset.editCoffer){openModal('coffer',elem.dataset.editCoffer);return;}
       if(elem.dataset.deleteCoffer){deleteCoffer(elem.dataset.deleteCoffer);return;}
       const action=elem.dataset.action;
-      if(action==='add-transaction')openModal('transaction');else if(action==='add-bill')openModal('bill');else if(action==='add-goal')openModal('goal');else if(action==='add-coffer')openModal('coffer');else if(action==='print-woodbox')window.print();else if(action==='edit-monthly-goal')editMonthlyGoal();
+      if(action==='add-wallet')openModal('wallet');else if(action==='add-category')openModal('category');else if(action==='add-transaction')openModal('transaction');else if(action==='add-bill')openModal('bill');else if(action==='add-goal')openModal('goal');else if(action==='add-coffer')openModal('coffer');else if(action==='print-woodbox')window.print();else if(action==='edit-monthly-goal')editMonthlyGoal();
       const types=[['editTransaction','transaction',true],['deleteTransaction','transaction',false],['editBill','bill',true],['deleteBill','bill',false],['editGoal','goal',true],['deleteGoal','goal',false]];
       for(const [attr,kind,edit] of types){if(elem.dataset[attr]){(edit?openModal:removeEntity)(kind,elem.dataset[attr]);break;}}
     });
     document.addEventListener('change',e=>{if(e.target.matches('[data-budget-cat]'))saveBudget(e.target)});
     const validHash=location.hash.slice(1);
-    view=['painel','lancamentos','orcamento','contas','metas','cofrinhos','ajuda'].includes(validHash)?validHash:'painel';
+    view=['painel','lancamentos','orcamento','contas','metas','cofrinhos','carteiras','ajuda'].includes(validHash)?validHash:'painel';
     render();
   }
   init();

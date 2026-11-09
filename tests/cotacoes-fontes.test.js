@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict');
+const {readFileSync}=require('node:fs');
+const vm=require('node:vm');
+const code=readFileSync('assets/js/cotacoes-fontes.js','utf8');
+const ctx={window:{},console,Date,Number,Object,String,Error,Array};
+vm.runInNewContext(code,ctx);
+const api=ctx.window.KaykoCotacoes;
+assert.equal(api.validProvider('indevido'),'auto');
+assert.equal(api.validProvider('coingecko'),'coingecko');
+assert.equal(api.referenceLinks('BTC')[1].url,'https://coinmarketcap.com/currencies/bitcoin/');
+assert.equal(api.referenceLinks('USD')[2].url,'https://br.investing.com/currencies/');
+(async()=>{
+  let n=0;
+  const gecko=await api.priceUSD('BTC','coingecko',async url=>{assert.match(url,/coingecko/);return {bitcoin:{usd:100,last_updated_at:1780000000}}});
+  assert.equal(gecko.rate,100);assert.equal(gecko.source,'CoinGecko');
+  const cmc=await api.priceUSD('BTC','coinmarketcap',async url=>{assert.match(url,/public-api\/v2\/simple\/price/);return {status:{error_code:'0'},data:[{id:1,quotes:[{symbol:'USD',price:125,last_updated:'2026-11-09T12:00:00Z'}]}]}});
+  assert.equal(cmc.rate,125);assert.equal(cmc.source,'CoinMarketCap');
+  const auto=await api.priceUSD('BTC','auto',async url=>{n++; if(n===1)throw Error('falha');return {status:{error_code:0},data:[{id:1,quotes:[{symbol:'USD',price:200}]}]}});
+  assert.equal(auto.rate,200);assert.equal(n,2);
+  await assert.rejects(api.priceUSD('BTC','coingecko',async()=>({bitcoin:{usd:0}})),/indisponível/);
+  console.log('OK: fontes, fallback, links, preços e erros');
+})().catch(e=>{console.error(e);process.exitCode=1});

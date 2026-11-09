@@ -3,11 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0d1930">
+  <meta name="theme-color" content="#f5f7fb">
   <meta name="description" content="Controle de entradas, gastos, economia, contas fixas e metas. Funciona gratuitamente no GitHub Pages.">
   <title>Meu Controle Financeiro | Dev Kayko</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <!-- CSS geral e cores dos temas (Padrão, Azul, Rosa e Roxo) -->
   <link rel="stylesheet" href="style.css">
+  <!-- Cores das prioridades de pagamento, em arquivo próprio -->
+  <link rel="stylesheet" href="assets/css/contas-prioridades.css">
+  <!-- Simulador CDI e Tesouro Selic: estilos separados para facilitar edição -->
+  <link rel="stylesheet" href="assets/css/rendimentos-simulador.css">
+  <!-- Aparência do seletor de fontes de câmbio -->
+  <link rel="stylesheet" href="assets/css/cotacoes-fontes.css">
+  <!-- Cálculo da prioridade vem antes do app principal -->
+  <script defer src="assets/js/contas-prioridades.js"></script>
+  <script defer src="assets/js/rendimentos-simulador.js"></script>
+  <!-- APIs e links de CoinGecko, CoinMarketCap, Investing e CoinPaprika -->
+  <script defer src="assets/js/cotacoes-fontes.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -25,6 +37,7 @@
         <button class="nav-link" data-view="contas" type="button"><span class="nav-icon">▤</span> Contas fixas</button>
         <button class="nav-link" data-view="metas" type="button"><span class="nav-icon">◎</span> Minhas metas</button>
         <button class="nav-link" data-view="cofrinhos" type="button"><span class="nav-icon">▦</span> Cofrinhos e Woodbox</button>
+        <button class="nav-link" data-view="carteiras" type="button"><span class="nav-icon">◈</span> Apps, pontos e moedas</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="aside-note"><span class="safe-indicator"></span><span><strong>Dados neste dispositivo</strong><small>Salvamento automático no navegador. Faça backups periódicos.</small></span></div>
@@ -40,6 +53,10 @@
           <div class="breadcrumb">FINANÇAS PESSOAIS <span>/</span> <strong id="currentCrumb">Visão geral</strong></div>
         </div>
         <div class="topbar-right">
+          <div class="theme-controls" aria-label="Aparência do site">
+            <label class="theme-select-wrap" for="themePalette"><span>Cor</span><select id="themePalette" aria-label="Escolher tema de cor"><option value="current">Padrão</option><option value="blue">Azul</option><option value="pink">Rosa</option><option value="purple">Roxo</option></select></label>
+            <button id="themeModeToggle" class="button theme-mode-button button-small" type="button" aria-label="Ativar modo escuro" aria-pressed="false"><span class="theme-mode-icon" aria-hidden="true">☾</span><span class="theme-mode-label">Escuro</span></button>
+          </div>
           <span class="topbar-storage">◉ Salvo no navegador</span>
           <div class="topbar-backup-actions" aria-label="Ações de backup">
             <button class="button button-quick-backup button-small" id="dailyBackupButton" type="button" title="Baixar uma cópia completa dos dados de hoje" aria-label="Salvar backup completo do dia">▣ <span class="backup-button-label">Backup do dia</span></button>
@@ -70,19 +87,124 @@
         </section>
         <section id="view-orcamento" class="view" aria-label="Orçamento">
           <div class="section-toolbar"><div><h2>Limites de gastos</h2><p>Defina quanto pretende gastar em cada categoria no mês escolhido.</p></div><button type="button" class="button button-outline" id="copyPreviousBudget">↪ Copiar orçamento do mês anterior</button></div>
-          <div class="budget-overview" id="budgetOverview"></div><div class="panel"><div class="panel-heading"><div><h2>Orçamento por categoria</h2><p>Edite o teto mensal nos campos abaixo. O valor gasto é calculado pelos lançamentos.</p></div></div><div id="budgetRows" class="budget-rows"></div></div>
+          <div class="budget-overview" id="budgetOverview"></div><div class="panel"><div class="panel-heading budget-panel-heading"><div><h2>Orçamento por categoria</h2><p>Edite o teto mensal nos campos abaixo. O valor gasto é calculado pelos lançamentos.</p></div><button type="button" class="button button-primary" data-action="add-category">+ Adicionar categoria</button></div><div id="budgetRows" class="budget-rows"></div></div>
         </section>
-        <section id="view-contas" class="view" aria-label="Contas fixas"><div class="section-toolbar"><div><h2>Contas fixas e recorrentes</h2><p>Planeje pagamentos mensais. Uma previsão só vira gasto quando você registrá-la.</p></div><button class="button button-primary" type="button" data-action="add-bill">+ Adicionar conta</button></div><div class="mini-stats" id="billsStats"></div><div class="panel table-panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Conta</th><th>Categoria</th><th>Vencimento</th><th class="right">Valor previsto</th><th>Status</th><th class="right">Ações</th></tr></thead><tbody id="billsBody"></tbody></table></div></div></section>
+        <!-- =========================================================
+             CONTAS FIXAS | Indicadores e tabela de prioridades
+             Lógica: assets/js/contas-prioridades.js
+             Cores:  assets/css/contas-prioridades.css
+             ========================================================= -->
+        <section id="view-contas" class="view" aria-label="Contas fixas">
+          <div class="section-toolbar">
+            <div>
+              <h2>Contas fixas e recorrentes</h2>
+              <p>Veja quais contas estão mais próximas do vencimento.</p>
+            </div>
+            <button class="button button-primary" type="button" data-action="add-bill">+ Adicionar conta</button>
+          </div>
+          <div class="mini-stats" id="billsStats"></div>
+          <div class="bill-priority-guide" role="note" aria-label="Significado das cores de prioridade">
+            <div class="bill-priority-guide-items">
+              <span class="bill-priority-badge priority--green">Verde · 7 dias ou mais</span>
+              <span class="bill-priority-badge priority--yellow">Amarelo · 2 a 6 dias</span>
+              <span class="bill-priority-badge priority--red">Vermelho · hoje ou amanhã</span>
+            </div>
+            <p>Alertas calculados a partir de hoje. Não confirmam que uma conta foi paga.</p>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Conta</th>
+                    <th>Categoria</th>
+                    <th>Próximo vencimento</th>
+                    <th>Prioridade</th>
+                    <th class="right">Valor previsto</th>
+                    <th>Status</th>
+                    <th class="right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="billsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
         <section id="view-metas" class="view" aria-label="Metas"><div class="section-toolbar"><div><h2>Objetivos de economia</h2><p>Veja suas reservas crescerem. O dinheiro guardado não é contado como gasto.</p></div><button class="button button-primary" type="button" data-action="add-goal">+ Nova meta</button></div><div class="mini-stats" id="goalsStats"></div><div class="goals-grid" id="goalsGrid"></div></section>
         <section id="view-cofrinhos" class="view" aria-label="Cofrinhos e Desafio Woodbox">
           <div class="section-toolbar"><div><h2>Meus cofrinhos</h2><p>Separe suas economias e acompanhe cada depósito, sem contar duas vezes.</p></div><button class="button button-primary" type="button" data-action="add-coffer">+ Criar cofrinho</button></div>
           <div class="mini-stats" id="cofferStats"></div>
+          <!-- ===============================================================
+               SIMULADOR DE RENDA FIXA | CDI x Tesouro Selic
+               Matemática e BCB: assets/js/rendimentos-simulador.js
+               Cores e layout: assets/css/rendimentos-simulador.css
+               Integração, saldo dos cofrinhos e eventos: app.js (renderYield*)
+               =============================================================== -->
+          <section class="panel yield-panel" aria-labelledby="yieldTitle">
+            <div class="yield-panel-heading">
+              <div><span class="eyebrow">SIMULAÇÃO DE INVESTIMENTO</span><h2 id="yieldTitle">Quanto seu dinheiro poderia render?</h2>
+                <p>Compare um investimento atrelado ao CDI com o Tesouro Selic, informando seu saldo e prazo.</p></div>
+              <span class="yield-simulator-badge">Simulação · não é investimento real</span>
+            </div>
+            <div class="yield-form-grid">
+              <label class="yield-field" for="yieldSource"><span>Usar saldo de</span><select id="yieldSource"><option value="manual">Valor informado por mim</option></select></label>
+              <label class="yield-field" for="yieldPrincipal"><span>Saldo para simular (R$)</span><input id="yieldPrincipal" type="number" min="0" max="1000000000000" step="0.01" value="1000" inputmode="decimal"></label>
+              <label class="yield-field" for="yieldPeriodCount"><span>Quantidade de períodos</span><input id="yieldPeriodCount" type="number" min="1" max="360" step="1" value="1" inputmode="numeric"></label>
+              <label class="yield-field" for="yieldPeriodUnit"><span>Período</span><select id="yieldPeriodUnit"><option value="months">Mês(es)</option><option value="days">Dia(s) útil(eis)</option></select></label>
+            </div>
+            <div class="yield-rates-heading"><h3>Taxas utilizadas na simulação</h3><button class="button button-outline button-small" type="button" id="yieldGetBcbRates">↻ Consultar Banco Central</button></div>
+            <div class="yield-form-grid yield-rate-fields">
+              <label class="yield-field" for="yieldCdiAnnual"><span>CDI anual (% a.a.)</span><input id="yieldCdiAnnual" type="number" min="0" max="100" step="0.0001" value="10" inputmode="decimal"></label>
+              <label class="yield-field" for="yieldCdiPercent"><span>Quanto rende do CDI (%)</span><input id="yieldCdiPercent" type="number" min="0" max="200" step="0.5" value="100" inputmode="decimal"></label>
+              <label class="yield-field" for="yieldSelicAnnual"><span>Selic efetiva anual (% a.a.)</span><input id="yieldSelicAnnual" type="number" min="0" max="100" step="0.0001" value="10" inputmode="decimal"></label>
+            </div>
+            <p class="yield-rate-status" id="yieldRateStatus" role="status" aria-live="polite">Taxas de 10% ao ano são apenas exemplos. Edite os campos ou consulte o Banco Central.</p>
+            <div class="yield-result-grid" id="yieldResults" aria-live="polite"></div>
+            <div class="yield-small-table" id="yieldQuickResults"></div>
+            <p class="yield-disclaimer">Projeção <strong>bruta</strong> com juros compostos, usando 252 dias úteis por ano e 21 por mês (aproximação). Não inclui IR, IOF, taxa de custódia B3, corretagem, spread do título ou mudanças futuras nas taxas. O Tesouro Selic real pode render diferente, sobretudo em resgate antecipado. O CDI é uma taxa de referência; o rendimento depende do produto contratado. <strong>Os valores simulados não entram no saldo do cofrinho nem nos lançamentos.</strong> <a href="https://www.tesourodireto.com.br/sobre-o-tesouro/regras-e-regulamento" target="_blank" rel="noopener noreferrer">Regras do Tesouro Direto</a>.</p>
+          </section>
           <div class="coffer-grid" id="cofferList"></div>
           <div id="cofferDetails"></div>
         </section>
+        <section id="view-carteiras" class="view" aria-label="Apps, pontos e moedas">
+          <div class="section-toolbar"><div><h2>Saldos de outros aplicativos</h2><p>Anote saldos em reais, dólares, pontos que viram dólar e suas criptomoedas.</p></div><button class="button button-primary" type="button" data-action="add-wallet">+ Adicionar app / saldo</button></div>
+          <div class="wallet-notice"><strong>Controle manual, sem ligação com outros aplicativos.</strong> Cadastre somente o que você realmente possui. Esses valores são independentes dos lançamentos e não aumentam o saldo disponível do painel. Conversões são estimativas, não transferências.</div>
+          <div class="wallet-refresh-row"><span>Cotações aproximadas; não representam resgate garantido.</span><button id="walletRefreshRates" class="button button-outline" type="button">↻ Atualizar cotações</button></div>
+          <div class="mini-stats" id="walletStats"></div>
+          <div id="walletCards" class="wallet-grid"></div>
+          <section class="panel currency-panel" aria-label="Conversor de moedas e criptomoedas">
+            <div class="panel-heading"><div><h2>Conversor de moedas e criptomoedas</h2><p>Reais, dólares, euros e outras moedas, Bitcoin e demais criptomoedas.</p></div></div>
+            <form id="converterForm" class="converter-form">
+              <label class="converter-field">Valor<input id="conversionAmount" type="number" step="any" min="0" max="1000000000000" value="100" required></label>
+              <label class="converter-field">De<select id="conversionFrom" required></select></label>
+              <button type="button" class="button button-outline converter-swap" id="converterSwap" title="Inverter moedas" aria-label="Inverter moedas">⇄</button>
+              <label class="converter-field">Para<select id="conversionTo" required></select></label>
+              <button class="button button-primary converter-submit" type="submit">Converter</button>
+            </form>
+            <!-- FONTE DAS COTAÇÕES | APIs: assets/js/cotacoes-fontes.js -->
+            <div class="quote-source-bar">
+              <label class="converter-field quote-source-field" for="cryptoQuoteSource">Fonte do preço das criptomoedas
+                <select id="cryptoQuoteSource" aria-label="Escolher fonte da cotação cripto">
+                  <option value="auto">Automática (tenta outras se falhar)</option>
+                  <option value="coingecko">CoinGecko</option>
+                  <option value="coinmarketcap">CoinMarketCap</option>
+                  <option value="coinpaprika">CoinPaprika</option>
+                </select>
+              </label>
+              <span class="quote-source-help">Moedas tradicionais: Frankfurter. A fonte escolhida também é utilizada nas estimativas das criptomoedas cadastradas.</span>
+            </div>
+            <div class="converter-result" role="status" aria-live="polite"><strong id="conversionResult">Selecione as moedas e clique em Converter.</strong><small id="conversionRateLabel">As cotações dependem da conexão com a internet.</small></div>
+            <div class="quote-links-box"><strong>Conferir cotações em outros sites</strong>
+              <div class="quote-reference-links" id="quoteReferenceLinks" aria-label="Abrir sites de referência de cotações"></div>
+              <p class="quote-links-note">CoinGecko e CoinMarketCap fornecem consultas automáticas quando a API e o navegador permitem. Investing.com abre para consulta externa: não há integração automática com o site. Cada fonte pode exibir preços diferentes por horário e mercado.</p>
+            </div>
+            <p class="rate-attribution">Cotações indicativas, sujeitas a atraso e limites dos serviços, sem incluir impostos, taxas, spread ou valor efetivo de resgate. Não são ordens de compra ou venda.</p>
+          </section>
+        </section>
         <section id="view-ajuda" class="view" aria-label="Como usar">
-          <div class="panel help-panel"><div class="panel-heading"><div><h2>Como usar o controle financeiro</h2><p>Comece pelos lançamentos e acompanhe seus resultados no painel.</p></div></div><div class="help-steps"><article><span>01</span><div><h3>Selecione o mês e o ano</h3><p>Use o seletor no topo para visualizar um período específico. Seus lançamentos de outros meses ficam preservados.</p></div></article><article><span>02</span><div><h3>Cadastre seu dinheiro</h3><p>Use <strong>Entrada</strong> para salários e dinheiro recebido, <strong>Gasto</strong> para compras e contas pagas e <strong>Reserva</strong> somente quando separar dinheiro para economizar.</p></div></article><article><span>03</span><div><h3>Estabeleça limites</h3><p>Em Orçamento, informe o valor máximo que deseja gastar em cada categoria naquele mês. Pode copiar os valores do mês anterior.</p></div></article><article><span>04</span><div><h3>Planeje contas fixas</h3><p>Cadastre aluguel, internet, energia e outras previsões. Elas não diminuem seu saldo até você lançar o pagamento real como Gasto.</p></div></article><article><span>05</span><div><h3>Defina metas</h3><p>Crie metas e vincule lançamentos do tipo Reserva a cada uma. O campo "Já tinha guardado" é um valor inicial, não uma receita do mês.</p></div></article><article><span>06</span><div><h3>Cofrinhos e Desafio Woodbox</h3><p>Crie um cofrinho livre para depositar ou resgatar dinheiro. No Woodbox, escolha o modelo e marque cada casa somente depois de guardar o valor indicado. Os depósitos entram automaticamente como Reservas nos lançamentos; não lance o mesmo depósito uma segunda vez.</p></div></article><article><span>07</span><div><h3>Faça cópias de segurança</h3><p>Os dados são salvos <strong>somente neste navegador</strong> e dispositivo. Use o botão “Backup do dia” no topo para guardar uma cópia; use “Backup e transferência” para compartilhar ou importar esse arquivo em outro navegador.</p></div></article></div></div>
-          <div class="panel backup-panel"><div><h2>Backup e transferência</h2><p>Exporte seus dados, restaure um backup ou gere um CSV compatível com Excel.</p></div><div class="backup-actions"><button type="button" class="button button-primary" id="backupExport">↓ Exportar backup JSON</button><button type="button" class="button button-outline" id="backupImport">↑ Importar backup JSON</button><button type="button" class="button button-outline" id="csvExport">↓ Lançamentos CSV</button><input type="file" id="backupFile" accept="application/json,.json" hidden></div><p class="warning-note"><strong>Atenção:</strong> Cofrinhos e Woodbox são controles virtuais, não guardam nem transferem dinheiro. <strong>O saldo depende dos valores que você realmente separou.</strong>  GitHub Pages não é banco de dados. Não há login, sincronização entre aparelhos nem cópia na nuvem. Não publique seus backups privados no repositório público.</p></div>
+          <div class="panel help-panel"><div class="panel-heading"><div><h2>Como usar o controle financeiro</h2><p>Comece pelos lançamentos e acompanhe seus resultados no painel.</p></div></div><div class="help-steps"><article><span>01</span><div><h3>Selecione o mês e o ano</h3><p>Use o seletor no topo para visualizar um período específico. Seus lançamentos de outros meses ficam preservados.</p></div></article><article><span>02</span><div><h3>Cadastre seu dinheiro</h3><p>Use <strong>Entrada</strong> para salários e dinheiro recebido, <strong>Gasto</strong> para compras e contas pagas e <strong>Reserva</strong> somente quando separar dinheiro para economizar.</p></div></article><article><span>03</span><div><h3>Estabeleça limites</h3><p>Em Orçamento, informe o valor máximo que deseja gastar em cada categoria naquele mês. Pode copiar os valores do mês anterior.</p></div></article><article><span>04</span><div><h3>Planeje contas fixas</h3><p>Cadastre aluguel, internet, energia e outras previsões. <strong>Verde:</strong> 7 dias ou mais; <strong>amarelo:</strong> 2 a 6 dias; <strong>vermelho:</strong> hoje ou amanhã. Os alertas indicam a próxima data recorrente e não comprovam pagamento nem atraso. Essas contas só diminuem seu saldo quando você registra um Gasto.</p></div></article><article><span>05</span><div><h3>Defina metas</h3><p>Crie metas e vincule lançamentos do tipo Reserva a cada uma. O campo "Já tinha guardado" é um valor inicial, não uma receita do mês.</p></div></article><article><span>06</span><div><h3>Cofrinhos e Desafio Woodbox</h3><p>Crie um cofrinho livre para depositar ou resgatar dinheiro. No Woodbox, escolha o modelo e marque cada casa somente depois de guardar o valor indicado. Os depósitos entram automaticamente como Reservas nos lançamentos; não lance o mesmo depósito uma segunda vez.</p></div></article><article><span>07</span><div><h3>Faça cópias de segurança</h3><p>Os dados são salvos <strong>somente neste navegador</strong> e dispositivo. Use o botão “Backup do dia” no topo para guardar uma cópia; use “Backup e transferência” para compartilhar ou importar esse arquivo em outro navegador.</p></div></article></div></div>
+          <div class="panel help-extra"><h2>Apps, pontos e moedas</h2><p>Na aba “Apps, pontos e moedas”, crie um registro para cada app. Exemplo: 2.500 pontos e taxa de 1.000 pontos = US$ 1 significam aproximadamente US$ 2,50, antes de qualquer conversão em reais. Para criptomoedas, registre a quantidade e escolha o ativo; a cotação pode usar CoinGecko, CoinMarketCap ou CoinPaprika, com seleção de fonte no conversor. Se a API falhar, use Automática ou informe uma cotação manual. Esses valores não entram nas receitas ou no saldo de sua conta.</p><p>Personalize o site pelos controles “Cor” e “Claro/Escuro” no cabeçalho. No orçamento, use “Adicionar categoria” e vincule seus gastos a ela.</p></div>
+          <div class="panel backup-panel"><div><h2>Backup e transferência</h2><p>Exporte seus dados, restaure um backup ou gere um CSV compatível com Excel.</p></div><div class="backup-actions"><button type="button" class="button button-primary" id="backupExport">↓ Exportar backup JSON</button><button type="button" class="button button-outline" id="backupImport">↑ Importar backup JSON</button><button type="button" class="button button-outline" id="csvExport">↓ Lançamentos CSV</button><input type="file" id="backupFile" accept="application/json,.json" hidden></div><p class="warning-note"><strong>Atenção:</strong> Apps, pontos e criptomoedas são registros manuais. O conversor não movimenta dinheiro. Cofrinhos e Woodbox são controles virtuais, não guardam nem transferem dinheiro. <strong>O saldo depende dos valores que você realmente separou.</strong>  GitHub Pages não é banco de dados. Não há login, sincronização entre aparelhos nem cópia na nuvem. Não publique seus backups privados no repositório público.</p></div>
           
         </section>
         <footer class="footer-credits">© 2026 Meu Controle Financeiro | Desenvolvido por <a href="https://www.instagram.com/alien_okyak/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram de Dev Kayko"><strong>Dev Kayko</strong></a></footer>

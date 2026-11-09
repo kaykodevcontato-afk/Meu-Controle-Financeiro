@@ -10,6 +10,8 @@ Site pessoal gratuito para controlar entradas, gastos, reservas, orçamento mens
 - **Contas fixas:** cadastrar previsões mensais, com dia de vencimento, valor e situação ativa/pausada. **Não** entram automaticamente nos gastos.
 - **Metas:** acompanhar objetivos, saldo inicial e reservas vinculadas a cada objetivo.
 - **Cofrinhos:** criar vários cofrinhos livres com meta de economia; depositar e retirar com histórico.
+- **Simulador de rendimentos (NOVO):** na aba Cofrinhos, informe um saldo em reais ou selecione um cofrinho existente; veja estimativas **brutas** por dia útil, por mês e pelo prazo escolhido para um investimento atrelado ao CDI (com % configurável) e para o Tesouro Selic. Configure as taxas manualmente ou use o botão de consulta ao Banco Central (SGS 12 e 11) quando houver internet e a API permitir. Sem transações, depósitos nem integração com corretoras. Os 10% anuais iniciais são **apenas exemplo**. Simulação com 252 dias úteis/ano e 21 por mês; desconsidera IR, IOF, custódia, spread e variação futura das taxas. Essas projeções não são saldos reais.
+- **Fontes de câmbio (NOVO):** na aba **Apps, pontos e moedas**, o conversor oferece seleção Automática (CoinGecko → CoinMarketCap → CoinPaprika) ou fonte individual para cripto; moedas tradicionais usam Frankfurter. Links externos para conferir preços no CoinGecko, CoinMarketCap, Investing.com, Frankfurter e CoinPaprika. APIs externas dependem de conexão, CORS e limites do provedor; não se inventa cotação quando falham. A escolha da fonte permanece no backup.
 - **Desafio Woodbox:** cartela de depósito com casas que você marca quando guarda o dinheiro. Modelos de R$ 1.000, R$ 3.000, R$ 5.000, R$ 10.000 e R$ 30.000; modalidades crescentes de R$ 1 a R$ 100 ou 200, ou cartela personalizada de 1 a 500 casas e valor por casa.
   - A opção R$ 30.000 usa **300 depósitos de R$ 100**; a opção R$ 3.000 usa **300 depósitos de R$ 10**, para não confundir quantidade de casas com valor depositado.
   - Ao confirmar uma casa, o site cria um lançamento **Reserva** com valor e data. Desfazer a marcação remove o lançamento correspondente.
@@ -31,6 +33,17 @@ Site pessoal gratuito para controlar entradas, gastos, reservas, orçamento mens
    ├── style.css
    ├── app.js
    ├── favicon.svg
+   ├── assets/
+   │   ├── css/
+   │   │   ├── contas-prioridades.css
+   │   │   ├── rendimentos-simulador.css
+   │   │   └── cotacoes-fontes.css
+   │   └── js/
+   │       ├── contas-prioridades.js
+   │       ├── rendimentos-simulador.js
+   │       └── cotacoes-fontes.js
+   ├── docs/GUIA_DE_EDICAO.md
+   ├── tests/
    ├── .nojekyll
    └── README.md
    ```
@@ -102,3 +115,104 @@ Para trocar o nome da marca, edite o texto `Meu Controle` no `index.html`. Para 
 ### Crédito no rodapé
 
 O crédito **© 2026 Meu Controle Financeiro | Desenvolvido por Dev Kayko** aparece em todas as abas do site. O nome é um link para o Instagram: https://www.instagram.com/alien_okyak/
+
+---
+
+## Atualização — apps, pontos, moedas, orçamento e aparência
+
+Nesta versão, **todos os recursos antigos continuam** e foram acrescentadas as opções abaixo.
+
+### Apps, pontos e moedas
+
+Abra **Apps, pontos e moedas** no menu lateral e selecione **Adicionar app / saldo**.
+
+- **Saldo em moeda:** escreva o nome do aplicativo, o saldo e escolha a moeda (BRL, USD, EUR, GBP, JPY, CAD, CHF, ARS, MXN ou AUD).
+- **Pontos:** registre a quantidade acumulada e, se souber, o valor de resgate no formato **quantos pontos são necessários para 1 dólar**. Por exemplo, 2.500 pontos com taxa de 1.000 pontos/US$ 1 equivalem a **US$ 2,50**, antes do câmbio para reais.
+- **Criptomoedas:** digite a quantidade que já tem e escolha entre BTC, ETH, SOL, USDT, USDC, BNB, DOGE, ADA, XRP e LTC. Você pode cadastrar o preço unitário **manual em dólares** ou deixar esse campo vazio para tentar usar a cotação externa.
+- É possível **editar e excluir** cada app/saldo. O botão **Atualizar cotações** descarta cotações em memória e consulta os serviços novamente.
+
+**Atenção:** estes são registros *manuais*; o site não acessa a conta dos outros aplicativos, não consulta automaticamente seu saldo verdadeiro, não faz resgate, não guarda criptomoedas e **não soma saldos externos no saldo disponível das entradas e gastos**. Só inclua valores que você realmente possui. Se a cotação falhar, o valor estimado será apresentado como indisponível, não como uma taxa inventada. Algumas plataformas impõem mínimos de saque ou taxas, que não entram nos cálculos.
+
+### Conversor integrado
+
+Na mesma tela, informe um valor, escolha a moeda de origem e a de destino e clique em **Converter**. O conversor permite trocas de referência entre moedas tradicionais e criptomoedas, inclusive cripto → cripto, conforme a disponibilidade dos serviços.
+
+- Câmbio de moedas tradicionais: [Frankfurter](https://frankfurter.dev/), sem chave de API, dados de referência atualizados periodicamente.
+- Criptomoedas: [CoinPaprika](https://coinpaprika.com/developers), no acesso público, sujeita a limites de uso e indisponibilidade. **Powered by CoinPaprika**.
+- O conversor **precisa de internet**. As estimativas não incluem tarifas, spreads, impostos ou preços específicos do aplicativo onde você possui o saldo. Consultas podem ficar temporariamente indisponíveis.
+- A opção de preço manual da cripto é usada **apenas para o app/saldo cadastrado**, não substitui as cotações do conversor geral.
+
+### Mais categorias no orçamento
+
+Entre em **Orçamento → Adicionar categoria**, informe um nome e salve. As categorias extras ficam disponíveis nos **Gastos**, nas **Contas fixas** e nos limites mensais de orçamento. Você pode renomeá-las; lançamentos, contas e limites antigos associados acompanham a mudança. A exclusão é impedida enquanto houver lançamentos ou contas com essa categoria, para proteger o histórico; caso contrário, os limites relacionados serão excluídos após confirmação.
+
+### Quatro cores, dois modos
+
+No cabeçalho do site, selecione **Padrão**, **Azul**, **Rosa** ou **Roxo**, nesta ordem. O botão ao lado permite alternar entre **Claro** e **Escuro**. São oito combinações. **Padrão** e **Rosa** são apenas renomeações das opções anteriores **Atual** e **Rosa clarinho**, sem alteração da escolha salva. As opções são salvas neste navegador, juntamente com os outros dados, e entram no backup JSON.
+
+### Manter os dados ao atualizar no GitHub Pages
+
+1. **Antes de substituir os arquivos**, abra a versão atual no mesmo navegador e use **Backup do dia**.
+2. Faça o upload de `index.html`, `style.css`, `app.js`, `favicon.svg`, `README.md` e `.nojekyll` na raiz do mesmo repositório (sobrescrevendo os arquivos existentes).
+3. Continue acessando a **mesma URL** no mesmo navegador; a chave de armazenamento continua `kayko-controle-financeiro-v1` e os dados antigos permanecem.
+4. Seus backups JSON anteriores também podem ser importados. Os novos backups incluirão apps/saldos, categorias criadas e aparência escolhida.
+5. Não publique backups financeiros no GitHub público. A versão continua sem login/sincronização automática entre aparelhos; use as opções de backup e transferência.
+
+**Observação:** ao mudar de endereço do GitHub Pages ou de navegador, os dados armazenados no dispositivo não migram automaticamente. Restaure seu backup privado.
+
+
+---
+
+## Atualização — prioridade de pagamento das contas fixas
+
+Na aba **Contas fixas**, as contas ativas agora aparecem em ordem do próximo vencimento (mais urgente primeiro). O painel inicial **Próximas contas** usa a mesma ordem e mostra as mesmas cores:
+
+| Cor | Quando aparece | Exemplo |
+| --- | --- | --- |
+| 🟢 Verde | Faltam **7 dias ou mais** | Vence em 8 dias |
+| 🟡 Amarelo | Faltam **2 a 6 dias** | Vence em 3 dias |
+| 🔴 Vermelho | Vence **amanhã ou hoje** | Faltam 1 dia / hoje |
+| ⚪ Cinza | Conta pausada | Sem aviso ativo |
+
+- O cálculo usa a **data atual do aparelho**, independentemente do mês e ano selecionados para filtrar o painel.
+- Contas com vencimento no dia 29, 30 ou 31 em meses menores são consideradas com vencimento no **último dia disponível** desse mês.
+- Como as contas são **previsões recorrentes** e não possuem registro de quitação na própria seção, o aviso exibe a **próxima data**. Não afirma que a parcela anterior foi paga ou está atrasada.
+- Não houve mudança no modelo de armazenamento: os registros antigos e os backups JSON continuam compatíveis.
+
+### Organização do código no GitHub
+
+Leia **[docs/GUIA_DE_EDICAO.md](docs/GUIA_DE_EDICAO.md)** para localizar o que editar. Os avisos de prioridade estão isolados em dois novos arquivos:
+
+- `assets/js/contas-prioridades.js`: dia de vencimento, regras de cor e ordem das contas.
+- `assets/css/contas-prioridades.css`: aparência dos avisos, inclusive em modo escuro.
+
+**Envie também a pasta `assets` e a pasta `docs` quando atualizar o GitHub Pages.**
+
+
+## Simulador de rendimentos (CDI e Tesouro Selic)
+
+1. Abra **Cofrinhos e Woodbox → Quanto seu dinheiro poderia render?**.
+2. Em **Usar saldo de**, escolha **Valor informado por mim** (ex.: R$ 1.000,00) ou algum dos cofrinhos já cadastrados. Usar um cofrinho não altera o valor guardado.
+3. Escolha **dias úteis** ou **meses** e quantos períodos deseja projetar. Um mês é aproximado como **21 dias úteis**.
+4. Defina o percentual remunerado do CDI (ex.: 100%, 110%) e as taxas **anuais**. Começam em **10% de exemplo** (não são taxas atuais). Para dados oficiais atualizados, clique em **Consultar Banco Central**. Se a API bloquear a consulta ou estiver sem conexão, pode preencher manualmente.
+5. Confira os **rendimentos brutos projetados** para o prazo escolhido, além das estimativas separadas por **1 dia útil** e por **1 mês**.
+
+### Como a conta é feita
+
+- CDI e Selic: a taxa diária equivalente é `(1 + taxa_anual/100)^(1/252) - 1`.
+- Para uma aplicação que paga parte do CDI: `taxa_dia_investimento = taxa_dia_CDI × (% do CDI / 100)`.
+- Total projetado: `principal × (1 + taxa_dia)^(dias_úteis)`. Rendimento bruto é `total - principal`.
+- Banco Central: série **12** informa CDI diário; série **11** Selic efetiva diária. Ambas são anualizadas considerando 252 dias úteis.
+- **Atenção:** o Tesouro Selic é apenas aproximado pela Selic efetiva; preço do título, spread, custódia e impostos podem alterar o resultado. CDI é índice de referência, não um investimento disponível diretamente. O simulador **não considera** IR, IOF, custódia B3 e outras taxas; são valores brutos, não promessa de rentabilidade.
+
+**Editar:** cálculo e consulta BCB em `assets/js/rendimentos-simulador.js`, aparência em `assets/css/rendimentos-simulador.css`, formulário em `index.html`, persistência e integração em `app.js`. Mais detalhes em `docs/GUIA_DE_EDICAO.md`.
+
+Fontes: [Banco Central, taxa CDI série 12](https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?method=consultarSeries&series=12), [Selic série 11](https://dadosabertos.bcb.gov.br/dataset/11-taxa-de-juros---selic), [Tesouro Direto — regras e impostos](https://www.tesourodireto.com.br/sobre-o-tesouro/regras-e-regulamento).
+
+## Cotações e referências – edição rápida
+
+- `assets/js/cotacoes-fontes.js`: CoinGecko, CoinMarketCap (API pública keyless), CoinPaprika, lista de ativos e links para Investing.com.
+- `assets/css/cotacoes-fontes.css`: seleção e atalhos no visual claro/escuro.
+- `app.js`: uso das fontes no conversor e no cálculo de saldos cadastrados.
+- **Atenção:** não há API pública oficial do Investing.com para leitura direta. Abrimos o site para conferência. No CoinMarketCap, a API pública keyless é documentada, mas requisições de navegador podem ser bloqueadas por políticas de CORS; nesse caso a opção Automática tenta outras fontes.
+- Cotações são referências, podem ser diferentes dos valores praticados no resgate e não movimentam dinheiro.
