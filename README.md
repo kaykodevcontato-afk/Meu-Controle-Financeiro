@@ -249,3 +249,19 @@ Fontes para referência: https://brapi.dev/faq/api-e-gratis-mesmo • https://in
 ## Novidade — valor por ponto em reais ou dólares
 
 Ao selecionar **Apps, pontos e moedas → Adicionar app / saldo → Pontos / recompensas**, escolha a forma de cotação manual: quantos pontos equivalem a US$ 1 (modo anterior), quanto vale 1 ponto em reais (BRL) ou quanto vale 1 ponto em dólares (USD). A prévia calcula o total no próprio formulário. A cotação em dólares é convertida para reais usando a fonte de câmbio do site quando disponível. Valores estimados não entram nas receitas nem no saldo disponível. Os dados e a forma de cálculo são incluídos nos backups JSON.
+
+
+## Marcar conta como paga (novo)
+
+Em **Contas fixas**, clique em **✓ Marcar paga** para a competência do mês atual. A conta aparece com o indicador verde **Paga** e deixa de aparecer entre as próximas contas pendentes. Use **↶ Desmarcar** se necessário. No mês seguinte, ela volta a ficar pendente automaticamente, mas o histórico dos meses pagos permanece salvo no backup JSON. Marcar como paga **não desconta dinheiro**: para contabilizar a saída, registre também um **Gasto** em Lançamentos, apenas uma vez.
+
+**Onde editar:** `app.js` na seção `CONTAS PAGAS: histórico por competência mensal`; cores em `assets/css/contas-prioridades.css`.
+
+
+## Imprimir relatório completo (novo)
+
+No topo, clique **Imprimir relatório**. Uma nova janela mostra o relatório com os dados disponíveis **neste navegador**. Clique **Imprimir / Salvar como PDF** e selecione a impressora ou **Salvar como PDF**. Caso o navegador bloqueie a janela, permita pop-ups para seu site.
+
+Inclui resumo do mês e histórico, lançamentos de todos os meses, orçamentos, contas e meses marcados pagos, metas, cofrinhos/Woodbox, aplicativos de pontos/saldos e carteira manual de investimentos. É apenas um relatório local; nenhuma simulação altera saldos e nenhuma cotação é atualizada durante a impressão. Guarde o arquivo PDF em local privado.
+
+**Onde editar:** `assets/js/relatorio-impressao.js` controla as seções, cálculos e layout impresso; `assets/css/relatorio-impressao.css` controla o botão no topo; `index.html` contém o botão; `app.js` liga o botão ao banco local.

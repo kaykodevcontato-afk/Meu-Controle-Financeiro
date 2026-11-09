@@ -72,7 +72,7 @@
     const transactions = candidate.transactions.slice(0,30000).map(t => ({id:clean(t.id||uid()),date:/^\d{4}-\d{2}-\d{2}$/.test(t.date)?t.date:today(),type:types.includes(t.type)?t.type:'Gasto',category:clean(t.category),description:clean(t.description),payment:clean(t.payment),amount:amount(t.amount),goalId:clean(t.goalId),cofferId:clean(t.cofferId),boxSlot:Number.isInteger(t.boxSlot)&&t.boxSlot>=0&&t.boxSlot<500?t.boxSlot:null,notes:clean(t.notes)}));
     const customCategories=[...new Set((Array.isArray(candidate.customCategories)?candidate.customCategories:[]).slice(0,100).map(c=>clean(c).trim().slice(0,60)).filter(c=>c&&!EXPENSE_CATS.some(d=>d.toLowerCase()===c.toLowerCase())))];
     const allowedCategories=[...EXPENSE_CATS,...customCategories];
-    const bills = candidate.bills.slice(0,1000).map(b => ({id:clean(b.id||uid()),name:clean(b.name),category:allowedCategories.includes(b.category)?b.category:'Outros',day:clamp(Math.floor(Number(b.day)||1),1,31),amount:amount(b.amount),active:b.active!==false}));
+    const bills = candidate.bills.slice(0,1000).map(b => ({id:clean(b.id||uid()),name:clean(b.name),category:allowedCategories.includes(b.category)?b.category:'Outros',day:clamp(Math.floor(Number(b.day)||1),1,31),amount:amount(b.amount),active:b.active!==false,paidMonths:[...new Set((Array.isArray(b.paidMonths)?b.paidMonths:[]).filter(x=>/^\d{4}-(0[1-9]|1[0-2])$/.test(x)))].slice(-120)}));
     const goals = candidate.goals.slice(0,1000).map(g => ({id:clean(g.id||uid()),name:clean(g.name),target:amount(g.target),initial:amount(g.initial)}));
     const coffers = (Array.isArray(candidate.coffers)?candidate.coffers:[]).slice(0,200).map(c => ({
       id:clean(c.id||uid()), name:clean(c.name), mode:c.mode==='woodbox'?'woodbox':'free',
@@ -187,10 +187,29 @@
   function billPriorityBadge(priority) {
     return `<span class="bill-priority-badge priority--${priority.tone}" title="${esc(priority.description)}">${esc(priority.label)}</span>`;
   }
+  // ===== CONTAS PAGAS: histórico por competência mensal =====
+  // Confirmar pagamento NÃO cria lançamento de Gasto: o usuário registra o débito
+  // em Lançamentos, caso deseje contabilizá-lo no saldo disponível.
+  function billMonthKey(date=new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+  }
+  function billIsPaid(b,date=new Date()) {
+    return Array.isArray(b.paidMonths) && b.paidMonths.includes(billMonthKey(date));
+  }
+  function toggleBillPaid(id) {
+    const bill=db.bills.find(b=>b.id===id);
+    if(!bill || !bill.active)return;
+    const key=billMonthKey();
+    const paid=new Set(bill.paidMonths||[]);
+    const wasPaid=paid.has(key);
+    if(wasPaid)paid.delete(key); else paid.add(key);
+    bill.paidMonths=[...paid].sort().slice(-120);
+    if(save()) {render();notify(wasPaid?'Pagamento desmarcado.':'Conta marcada como paga neste mês!');}
+  }
   function renderUpcomingBills() {
     const priorityRules=window.ControlePrioridadeContas;
     const referenceDate=new Date(); // Prazo real: independe do mês filtrado no painel.
-    const bills=priorityRules.sortBills(db.bills.filter(b=>b.active),referenceDate).slice(0,5);
+    const bills=priorityRules.sortBills(db.bills.filter(b=>b.active&&!billIsPaid(b,referenceDate)),referenceDate).slice(0,5);
     $('#upcomingBills').innerHTML=bills.length
       ? `<div class="activity-list">${bills.map(b=>{
           const priority=priorityRules.getPriority(b,referenceDate);
@@ -240,24 +259,28 @@
     const priorityRules=window.ControlePrioridadeContas;
     const referenceDate=new Date();
     const active=db.bills.filter(b=>b.active);
-    const urgent=active.filter(b=>priorityRules.getPriority(b,referenceDate).days<=1).length;
+    const unpaid=active.filter(b=>!billIsPaid(b,referenceDate));
+    const paidCount=active.length-unpaid.length;
+    const urgent=unpaid.filter(b=>priorityRules.getPriority(b,referenceDate).days<=1).length;
     $('#billsStats').innerHTML=
       infoCard('Total previsto no mês',money(fixedTotal()),'Previsão, não pagamento confirmado')+
       infoCard('Vencem hoje ou amanhã',String(urgent),'Prioridade vermelha')+
-      infoCard('Contas ativas',String(active.length),`${db.bills.length-active.length} pausada(s)`);
+      infoCard('Pagas neste mês',String(paidCount),`${unpaid.length} pendente(s) · ${db.bills.length-active.length} pausada(s)`);
 
     // Exibe primeiro a próxima conta a vencer; as pausadas ficam no final.
-    const ordered=priorityRules.sortBills(db.bills,referenceDate);
+    const ordered=priorityRules.sortBills(db.bills,referenceDate).sort((a,b)=>Number(billIsPaid(a,referenceDate))-Number(billIsPaid(b,referenceDate)));
     $('#billsBody').innerHTML=ordered.length ? ordered.map(b=>{
       const priority=priorityRules.getPriority(b,referenceDate);
-      return `<tr class="bill-row bill-row--${priority.tone}">
+      const paid=billIsPaid(b,referenceDate);
+      return `<tr class="bill-row bill-row--${paid?'paid':priority.tone}">
         <td class="main-cell">${esc(b.name)}</td>
         <td>${esc(b.category)}</td>
         <td class="bill-due-cell"><strong>${b.active?priority.dueText:'—'}</strong><small>Todo dia ${String(b.day).padStart(2,'0')}</small></td>
-        <td>${billPriorityBadge(priority)}</td>
+        <td>${paid?'<span class="bill-priority-badge priority--paid">✓ Paga</span>':billPriorityBadge(priority)}</td>
         <td class="right"><strong>${money(b.amount)}</strong></td>
-        <td><span class="pill ${b.active?'income':'inactive'}">${b.active?'Ativa':'Pausada'}</span></td>
+        <td><span class="pill ${paid?'income':b.active?'expense':'inactive'}">${paid?'Paga':b.active?'Pendente':'Pausada'}</span></td>
         <td class="right"><div class="actions">
+          ${b.active?`<button class="action-small bill-pay-button ${paid?'bill-undo-button':''}" type="button" data-toggle-bill-paid="${esc(b.id)}" aria-label="${paid?'Desmarcar pagamento de':'Marcar como paga'} ${esc(b.name)}">${paid?'↶ Desmarcar':'✓ Marcar paga'}</button>`:''}
           <button class="action-small" data-edit-bill="${esc(b.id)}" type="button">Editar</button>
           <button class="action-small danger" data-delete-bill="${esc(b.id)}" type="button" aria-label="Excluir conta ${esc(b.name)}">✕</button>
         </div></td>
@@ -598,7 +621,8 @@
     }else if(kind==='bill'){
       const amount=parseAmount(fields.amount),day=Number(fields.day);
       if(!fields.name.trim()||amount===null||!Number.isInteger(day)||day<1||day>31){notify('Preencha nome, dia de 1 a 31 e valor maior que zero.',true);return;}
-      const record={id:id||uid(),name:fields.name.trim().slice(0,100),category:fields.category,day,amount,active:fields.active==='true'};
+      const oldBill=id?db.bills.find(b=>b.id===id):null;
+      const record={id:id||uid(),name:fields.name.trim().slice(0,100),category:fields.category,day,amount,active:fields.active==='true',paidMonths:oldBill?.paidMonths||[]};
       if(id)db.bills=db.bills.map(b=>b.id===id?record:b);else db.bills.push(record);
     }else if(kind==='goal'){
       const target=parseAmount(fields.target),initial=parseAmount(fields.initial||0,false);
@@ -971,6 +995,9 @@
     // Atalhos de acesso rápido no cabeçalho, em qualquer tela (PC e celular).
     $('#dailyBackupButton').addEventListener('click',backupExport);
     $('#backupCenterButton').addEventListener('click',openBackupCenter);
+    $('#printReportButton').addEventListener('click',()=>{
+      if(!window.KaykoRelatorio || !window.KaykoRelatorio.abrir(db)) notify('Relatório bloqueado: permita janelas pop-up e tente novamente.',true);
+    });
     $('#backupCloseButton').addEventListener('click',closeBackupCenter);
     $('#backupOverlay').addEventListener('click',e=>{if(e.target.id==='backupOverlay')closeBackupCenter()});
     $('#backupSaveNow').addEventListener('click',backupExport);
@@ -991,9 +1018,10 @@
     $('#mobileMenu').addEventListener('click',()=>{const opened=$('#sidebar').classList.toggle('open');$('#mobileShade').hidden=!opened;$('#mobileMenu').setAttribute('aria-expanded',String(opened))});
     $('#mobileShade').addEventListener('click',()=>{$('#sidebar').classList.remove('open');$('#mobileShade').hidden=true;$('#mobileMenu').setAttribute('aria-expanded','false')});
     document.addEventListener('click',e=>{
-      const elem=e.target.closest('button[data-view],button[data-action],[data-edit-wallet],[data-delete-wallet],[data-edit-category],[data-delete-category],[data-select-coffer],[data-coffer-cell],[data-coffer-move],[data-edit-coffer],[data-delete-coffer],[data-edit-transaction],[data-delete-transaction],[data-edit-bill],[data-delete-bill],[data-edit-goal],[data-delete-goal]');
+      const elem=e.target.closest('button[data-view],button[data-action],[data-edit-wallet],[data-delete-wallet],[data-edit-category],[data-delete-category],[data-select-coffer],[data-coffer-cell],[data-coffer-move],[data-edit-coffer],[data-delete-coffer],[data-edit-transaction],[data-delete-transaction],[data-edit-bill],[data-delete-bill],[data-toggle-bill-paid],[data-edit-goal],[data-delete-goal]');
       if(!elem)return;
       if(elem.dataset.view){navigate(elem.dataset.view);return;}
+      if(elem.dataset.toggleBillPaid){toggleBillPaid(elem.dataset.toggleBillPaid);return;}
       if(elem.dataset.editWallet){openModal('wallet',elem.dataset.editWallet);return;}
       if(elem.dataset.deleteWallet){deleteWallet(elem.dataset.deleteWallet);return;}
       if(elem.dataset.editCategory){openModal('category',elem.dataset.editCategory);return;}

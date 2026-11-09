@@ -141,3 +141,16 @@ Para modificar uma paleta, priorize as variáveis `--ui-bg` (fundo), `--ui-surfa
 ## Valor manual dos pontos (R$ ou US$)
 
 No arquivo `app.js`, localize `openForm` no bloco `kind==='wallet'` para editar os campos `pointValueMode` e `pointUnitValue`. O cálculo aparece em `valueWalletInBRL`, e a prévia no formulário em `refreshWalletPointPreview`. O modo `legacy` mantém compatibilidade com os registros antigos de pontos por US$ 1. Não inclua essas estimativas como dinheiro recebido.
+
+
+### Confirmar pagamento de contas fixas
+- `app.js`: procure `CONTAS PAGAS: histórico por competência mensal`, `toggleBillPaid` e `renderBills`.
+- `assets/css/contas-prioridades.css`: procure `CONTAS PAGAS` para trocar as cores.
+- Os registros salvos usam `paidMonths` (ex.: `2026-11`) em cada conta. A importação de backups antigos continua válida. A marcação não cria gastos automaticamente.
+
+
+### Imprimir relatório completo
+- Botão no topo: `index.html` (`printReportButton`).
+- Campos e tabelas do relatório e regras de impressão: `assets/js/relatorio-impressao.js`.
+- Estilo do botão: `assets/css/relatorio-impressao.css`.
+- Evento e acesso aos dados atuais: `app.js` (procure `printReportButton`).

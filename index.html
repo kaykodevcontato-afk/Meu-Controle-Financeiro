@@ -23,6 +23,8 @@
   <!-- Investimentos: catálogo, preços, simulações e carteira; NÃO executa ordens -->
   <link rel="stylesheet" href="assets/css/investimentos-trade.css">
   <script defer src="assets/js/investimentos-trade.js"></script>
+  <link rel="stylesheet" href="assets/css/relatorio-impressao.css">
+  <script defer src="assets/js/relatorio-impressao.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -62,7 +64,8 @@
             <button id="themeModeToggle" class="button theme-mode-button button-small" type="button" aria-label="Ativar modo escuro" aria-pressed="false"><span class="theme-mode-icon" aria-hidden="true">☾</span><span class="theme-mode-label">Escuro</span></button>
           </div>
           <span class="topbar-storage">◉ Salvo no navegador</span>
-          <div class="topbar-backup-actions" aria-label="Ações de backup">
+          <div class="topbar-backup-actions" aria-label="Ações de backup e impressão">
+            <button class="button button-small button-print-report" id="printReportButton" type="button" title="Imprimir ou salvar em PDF todas as informações cadastradas">▤ <span>Imprimir relatório</span></button>
             <button class="button button-quick-backup button-small" id="dailyBackupButton" type="button" title="Baixar uma cópia completa dos dados de hoje" aria-label="Salvar backup completo do dia">▣ <span class="backup-button-label">Backup do dia</span></button>
             <button class="button button-transfer-top button-small" id="backupCenterButton" type="button" aria-haspopup="dialog" aria-controls="backupOverlay" title="Backup e transferência">↗ <span class="transfer-button-label">Backup e transferência</span><span class="transfer-short">Transferir</span></button>
           </div>
@@ -102,7 +105,7 @@
           <div class="section-toolbar">
             <div>
               <h2>Contas fixas e recorrentes</h2>
-              <p>Veja quais contas estão mais próximas do vencimento.</p>
+              <p>Veja os vencimentos e marque as contas que já foram pagas neste mês.</p>
             </div>
             <button class="button button-primary" type="button" data-action="add-bill">+ Adicionar conta</button>
           </div>
@@ -112,8 +115,9 @@
               <span class="bill-priority-badge priority--green">Verde · 7 dias ou mais</span>
               <span class="bill-priority-badge priority--yellow">Amarelo · 2 a 6 dias</span>
               <span class="bill-priority-badge priority--red">Vermelho · hoje ou amanhã</span>
+              <span class="bill-priority-badge priority--paid">✓ Paga no mês</span>
             </div>
-            <p>Alertas calculados a partir de hoje. Não confirmam que uma conta foi paga.</p>
+            <p>Use “✓ Marcar paga” para confirmar uma conta deste mês; “Desmarcar” desfaz. A confirmação não registra automaticamente um gasto.</p>
           </div>
           <div class="panel table-panel">
             <div class="table-scroll">

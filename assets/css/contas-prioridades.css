@@ -100,3 +100,15 @@ html[data-mode="dark"] {
   .bill-priority-guide-items { gap: 6px; }
   .bill-priority-guide .bill-priority-badge { font-size: 10px; }
 }
+
+/* ===== CONTAS PAGAS — edite a aparência dos registros confirmados aqui ===== */
+.bill-priority-badge.priority--paid { background:#d5f8e9; color:#075c42; border:1px solid #9bdabc; }
+.bill-row--paid td:first-child { border-left:3px solid #169a6e; }
+.bill-row--paid { background:rgba(31,169,115,.065); }
+.bill-pay-button { background:#e1f7ec; border-color:#9ed5b8; color:#075b40; white-space:nowrap; }
+.bill-undo-button { background:transparent; border-color:var(--line,#cbd5e1); color:var(--ink,#243449); }
+.bill-row .actions { flex-wrap:wrap; }
+html[data-mode="dark"] .bill-priority-badge.priority--paid,
+html[data-mode="dark"] .bill-priority-badge.priority--paid { background:#124836; color:#a9f5ce; border-color:#34785d; }
+html[data-mode="dark"] .bill-pay-button, html[data-mode="dark"] .bill-pay-button {background:#124836;color:#b9f8d6;border-color:#377b60;}
+html[data-mode="dark"] .bill-undo-button,html[data-mode="dark"] .bill-undo-button {background:transparent;color:#e6edf8;border-color:#60718c;}

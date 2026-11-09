@@ -1,0 +1,7 @@
+/* Botão do relatório: estilos organizados separadamente */
+.button-print-report{background:#eaf4ff;color:#164f8e;border:1px solid #bcd6f4}
+.button-print-report:hover{background:#d8eaff}
+body[data-mode="dark"] .button-print-report,html[data-mode="dark"] .button-print-report,body.dark .button-print-report{background:#213c59;color:#e1f2ff;border-color:#456887}
+@media(max-width:700px){.button-print-report{min-height:36px;padding:8px 10px;font-size:11px}}
+@media(max-width:400px){.button-print-report span{display:none}.button-print-report{min-width:38px}}
+@media print{.button-print-report{display:none!important}}
