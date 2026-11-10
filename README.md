@@ -277,3 +277,10 @@ Na seção **Apps, pontos e criptomoedas**, a coluna **Valor total estimado dos 
 ### Atualização: equivalências personalizadas em USD e criptomoedas
 
 Em **Apps, pontos e moedas**, o cadastro de pontos oferece equivalência personalizada em R$, US$ ou criptomoeda (BTC, ETH, SOL, USDT, USDC, BNB, DOGE, ADA, XRP, LTC). Cada aplicativo tem sua própria regra. A prévia, o cartão, o backup e a impressão incluem os novos valores. Regras antigas em R$ permanecem compatíveis. As estimativas em reais para USD e criptomoedas dependem de cotações externas disponíveis. Confira `docs/GUIA_DE_EDICAO.md`.
+
+
+## Menu de pontos mais organizado
+
+O seletor de **Como definir o valor dos pontos?** agora mostra opções curtas agrupadas em **Equivalência personalizada**, **Valor de cada ponto** e **Outras regras**. Os exemplos aparecem logo abaixo da seleção, sem ocupar espaço dentro do menu. As regras e os dados salvos de versões anteriores são mantidos.
+
+Para editar os nomes, grupos e exemplos, abra `app.js` e procure `POINT_MODE_GROUPS` e `POINT_MODE_HELP`. Para editar a aparência, procure `Pontos: menu de equivalência organizado` no final de `style.css`.

@@ -266,3 +266,11 @@ html[data-mode="dark"] .coffer-select,.wallet-card{color:var(--ui-ink)}
 .wallet-refresh-row button{min-height:35px;padding:8px 12px}
 /* Apps e pontos: prévia de conversão no formulário */
 #walletPointsPreview:not([hidden]){grid-column:1/-1;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-weight:700}
+
+/* ===== Pontos: menu de equivalência organizado ===== */
+#form-pointValueMode{width:100%;max-width:100%;min-width:0;text-overflow:ellipsis;font-weight:700;color:var(--ui-ink);background:var(--ui-surface-alt);border:1px solid var(--ui-border);color-scheme:light dark}
+#form-pointValueMode optgroup{font-weight:800;background:var(--ui-surface-alt);color:var(--ui-ink)}
+#form-pointValueMode option{font-weight:500;background:var(--ui-surface-alt);color:var(--ui-ink)}
+.point-mode-example{grid-column:1/-1;border:1px solid var(--ui-border);background:var(--ui-surface-alt);color:var(--ui-body);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.point-mode-example[hidden]{display:none!important}
+@media(max-width:620px){#form-pointValueMode{font-size:13px}.point-mode-example{font-size:11px}}

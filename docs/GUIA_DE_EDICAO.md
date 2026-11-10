@@ -181,3 +181,8 @@ Na tela **Apps e moedas → Adicionar app ou saldo → Pontos / recompensas**, e
 Para editar: procure `ratioBRL`, `ratioUSD`, `ratioCrypto` no `app.js`. O campo `pointReferenceBRL` mantém o nome histórico para preservar backups antigos, mas agora guarda o **valor equivalente na moeda escolhida**. `pointReferenceCrypto` armazena o símbolo, quando aplicável. Para modificar a impressão, edite `assets/js/relatorio-impressao.js` (`pointTotal` e seção `Apps, pontos e criptomoedas`).
 
 A equivalência é cadastrada manualmente; o valor estimado em reais das regras em dólar ou cripto exige cotação externa disponível. O relatório impresso mostra o valor na moeda da regra sem depender de conexão. Esses valores não representam dinheiro resgatado.
+
+
+## Menu de pontos mais organizado
+
+Em `app.js`, edite `POINT_MODE_GROUPS` (rótulos do seletor) e `POINT_MODE_HELP` (exemplos exibidos fora do menu). **Não altere os códigos internos** `ratioBRL`, `ratioUSD`, `ratioCrypto`, `BRL`, `USD` e `legacy`, pois são usados nos backups e cálculos. As cores estão ao final do `style.css` na seção **Pontos: menu de equivalência organizado**.

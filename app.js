@@ -454,6 +454,33 @@
   const input = (name,type,value,required=false,extra='') => `<input id="form-${name}" name="${name}" type="${type}" ${required?'required':''} ${extra} value="${esc(value)}">`;
   const select = (name,values,value,extra='') => `<select id="form-${name}" name="${name}" ${extra}>${values.map(v=>`<option value="${esc(v[0])}" ${v[0]===value?'selected':''}>${esc(v[1])}</option>`).join('')}</select>`;
   const choices=arr=>arr.map(c=>[c,c]);
+  // ===== PONTOS: MENU COM GRUPOS E EXEMPLOS SEPARADOS =====
+  // Os IDs internos permanecem iguais aos dos backups antigos.
+  const POINT_MODE_GROUPS = [
+    ['Equivalência personalizada',[
+      ['ratioBRL','Pontos → Reais (R$)'],
+      ['ratioUSD','Pontos → Dólares (US$)'],
+      ['ratioCrypto','Pontos → Criptomoeda']
+    ]],
+    ['Valor de cada ponto',[
+      ['BRL','1 ponto em reais (R$)'],
+      ['USD','1 ponto em dólares (US$)']
+    ]],
+    ['Outras regras',[
+      ['legacy','Pontos para receber US$ 1']
+    ]]
+  ];
+  const POINT_MODE_HELP = {
+    ratioBRL:'Exemplo: 3.615 pontos = R$ 15,00. Informe a quantidade de pontos e o valor total equivalente.',
+    ratioUSD:'Exemplo: 3.615 pontos = US$ 15,00. Informe a quantidade de pontos e o valor em dólares.',
+    ratioCrypto:'Exemplo: 3.615 pontos = 0,0001 BTC. Escolha a criptomoeda e informe a quantidade correspondente.',
+    BRL:'Exemplo: cada ponto vale R$ 0,01. Digite o valor de um único ponto.',
+    USD:'Exemplo: cada ponto vale US$ 0,01. Digite o valor de um único ponto.',
+    legacy:'Exemplo: 1.000 pontos = US$ 1. Informe quantos pontos são necessários para receber um dólar.'
+  };
+  function pointModeSelect(value){
+    return `<select id="form-pointValueMode" name="pointValueMode" aria-describedby="pointModeExplanation">${POINT_MODE_GROUPS.map(([group,items])=>`<optgroup label="${esc(group)}">${items.map(([key,label])=>`<option value="${key}" ${key===value?'selected':''}>${esc(label)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+  }
   // ===== 03. FORMULÁRIOS DE CADASTRO E EDIÇÃO =====
   function openModal(kind,id=null,operation='deposit') {
     previousFocus=document.activeElement;
@@ -502,7 +529,8 @@
        +field('balance','Quantidade ou saldo *',input('balance','number',w.balance,true,'min="0" max="1000000000000" step="any" placeholder="Ex.: 250.5"'))
        +field('currency','Moeda do saldo',select('currency',FIAT_CURRENCIES.map(c=>[c,c]),FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL'))
        +field('crypto','Criptomoeda',select('crypto',Object.keys(CRYPTO_ASSETS).map(c=>[c,`${c} · ${CRYPTO_ASSETS[c][0]}`]),Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:'BTC'))
-       +field('pointValueMode','Como definir o valor dos pontos?',select('pointValueMode',[['ratioBRL','Equivalência personalizada em R$ (ex.: 3615 pontos = R$ 15)'],['ratioUSD','Equivalência personalizada em US$ (ex.: 3615 pontos = US$ 15)'],['ratioCrypto','Equivalência personalizada em criptomoeda (ex.: 3615 pontos = 0,0001 BTC)'],['BRL','Valor de 1 ponto em reais (R$)'],['USD','Valor de 1 ponto em dólares (US$)'],['legacy','Quantidade de pontos para US$ 1']],w.pointValueMode||'legacy'),true,'Escolha a forma usada pelo aplicativo. O valor é definido manualmente por você.')
+       +field('pointValueMode','Como definir o valor dos pontos?',pointModeSelect(w.pointValueMode||'legacy'),true,'Escolha uma regra. Você poderá informar os valores logo abaixo.')
+       +'<div class="point-mode-example wide" id="pointModeExplanation" role="status" aria-live="polite"></div>'
        +field('pointUnitValue','Quanto vale 1 ponto?',input('pointUnitValue','number',w.pointUnitValue||'',false,'min="0" max="1000000000000" step="any" placeholder="Ex.: 0.01"'),true,'Ex.: 1 ponto = R$ 0,01 ou US$ 0,01, conforme a moeda escolhida.')
        +field('pointReferencePoints','Quantidade de pontos de referência',input('pointReferencePoints','number',w.pointReferencePoints||3615,false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 3615"'),true,'Ex.: 3615 pontos valem R$ 15. Pode definir outro valor para cada app.')
        +field('pointReferenceBRL','Valor equivalente em reais (R$)',input('pointReferenceBRL','number',w.pointReferenceBRL||15,false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 15"'),true,'O cálculo divide o valor em reais pelos pontos de referência e multiplica pela quantidade cadastrada.')
@@ -538,6 +566,8 @@
     $('#form-crypto').closest('.form-field').hidden=type!=='crypto';
     $('#form-pointValueMode').closest('.form-field').hidden=type!=='points';
     const pointMode=$('#form-pointValueMode').value;
+    const explanation=$('#pointModeExplanation');
+    if(explanation){ explanation.textContent=POINT_MODE_HELP[pointMode]||''; explanation.hidden=type!=='points'; }
     $('#form-pointsPerUsd').closest('.form-field').hidden=type!=='points'||pointMode!=='legacy';
     $('#form-pointUnitValue').closest('.form-field').hidden=type!=='points'||!['BRL','USD'].includes(pointMode);
     $('#form-pointReferencePoints').closest('.form-field').hidden=type!=='points'||!['ratioBRL','ratioUSD','ratioCrypto'].includes(pointMode);
