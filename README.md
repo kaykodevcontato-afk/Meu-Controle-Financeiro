@@ -273,3 +273,7 @@ Em **Apps, pontos e moedas**, é possível definir manualmente **1 ponto = R$ 1,
 ### Relatório de impressão: valor total dos pontos
 
 Na seção **Apps, pontos e criptomoedas**, a coluna **Valor total estimado dos pontos** apresenta o total calculado de cada app, usando sua regra manual cadastrada. Exemplo: 37.575 pontos com equivalência de 3.615 pontos = R$ 15,00 resultam em **R$ 155,91** (arredondado a centavos). Se a regra estiver em US$, o total será exibido em US$; sem taxa cadastrada, aparece **Não definido**. Os valores não são adicionados ao saldo financeiro. Para alterar a regra, edite o app na seção de saldos, não o relatório.
+
+### Atualização: equivalências personalizadas em USD e criptomoedas
+
+Em **Apps, pontos e moedas**, o cadastro de pontos oferece equivalência personalizada em R$, US$ ou criptomoeda (BTC, ETH, SOL, USDT, USDC, BNB, DOGE, ADA, XRP, LTC). Cada aplicativo tem sua própria regra. A prévia, o cartão, o backup e a impressão incluem os novos valores. Regras antigas em R$ permanecem compatíveis. As estimativas em reais para USD e criptomoedas dependem de cotações externas disponíveis. Confira `docs/GUIA_DE_EDICAO.md`.

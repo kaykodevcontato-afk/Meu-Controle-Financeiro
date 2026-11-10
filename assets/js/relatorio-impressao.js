@@ -22,10 +22,10 @@ const pointTotal=w=>{
  if(!Number.isFinite(balance)||balance<0)return '—';
  const mode=w.pointValueMode||'legacy';
  let value, currency;
- if(mode==='ratioBRL'){
-  const points=Number(w.pointReferencePoints), reais=Number(w.pointReferenceBRL);
-  if(!(points>0&&reais>0))return 'Não definido';
-  value=balance*reais/points;currency='BRL';
+ if(['ratioBRL','ratioUSD','ratioCrypto'].includes(mode)){
+  const points=Number(w.pointReferencePoints), equivalent=Number(w.pointReferenceBRL);
+  if(!(points>0&&equivalent>0))return 'Não definido';
+  value=balance*equivalent/points;currency=mode==='ratioUSD'?'USD':mode==='ratioCrypto'?(w.pointReferenceCrypto||'BTC'):'BRL';
  }else if(mode==='BRL'||mode==='USD'){
   const unit=Number(w.pointUnitValue);
   if(!(unit>0))return 'Não definido';
@@ -36,7 +36,7 @@ const pointTotal=w=>{
   value=balance/pointsPerUsd;currency='USD';
  }
  if(!Number.isFinite(value))return 'Não definido';
- return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(value);
+ return currency==='BRL'||currency==='USD'?new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(value):num(value)+' '+currency;
 };
 
 function build(db){
@@ -60,7 +60,7 @@ function build(db){
  sections+=section('Contas fixas e pagamentos',table(['Conta','Categoria','Dia','Valor','Situação','Meses marcados pagos'],bills.map(b=>row(b.name,b.category,b.day,brl(b.amount),b.active===false?'Pausada':'Ativa',(b.paidMonths||[]).map(period).join(', ')||'Nenhum'))),'Uma conta marcada como paga não gera automaticamente lançamento de gasto. Os meses pagos são exibidos separadamente.');
  sections+=section('Metas de economia',table(['Meta','Objetivo','Saldo inicial','Reservas vinculadas','Total estimado'],goals.map(g=>{const r=tx.filter(t=>t.goalId===g.id&&t.type==='Reserva').reduce((s,t)=>s+(Number(t.amount)||0),0);return row(g.name,brl(g.target),brl(g.initial),brl(r),brl(Number(g.initial||0)+r))})));
  sections+=section('Cofrinhos e Woodbox',table(['Cofrinho','Modalidade','Meta cadastrada','Saldo inicial','Saldo calculado'],coffers.map(c=>row(c.name,c.mode==='woodbox'?'Woodbox':'Livre',c.mode==='woodbox'?'Conforme cartela':brl(c.target),brl(c.initial),brl(cofferBalance(c,tx))))),'Saldos estimados a partir dos registros; rendimento simulado de CDI/Tesouro não entra no saldo.');
- sections+=section('Apps, pontos e criptomoedas',table(['Aplicativo','Tipo','Quantidade / saldo','Moeda','Valor de 1 ponto ou regra','Valor total estimado dos pontos'],wallets.map(w=>row(w.app,w.kind==='points'?'Pontos':w.kind==='crypto'?'Criptomoeda':'Saldo',num(w.balance),w.currency,w.kind==='points'?(w.pointValueMode==='ratioBRL'?num(w.pointReferencePoints)+' pontos = '+brl(w.pointReferenceBRL):w.pointValueMode==='BRL'?brl(w.pointUnitValue)+' por ponto':w.pointValueMode==='USD'?'US$ '+num(w.pointUnitValue)+' por ponto':num(w.pointsPerUsd)+' pontos por US$ 1'):'—',pointTotal(w)))),'O valor total dos pontos é calculado com a regra manual de cada aplicativo. Para regras em dólares, aparece o total em US$ (sem conversão automática para R$). Estes valores externos não representam dinheiro já resgatado, saldo bancário ou preços de mercado em tempo real.');
+ sections+=section('Apps, pontos e criptomoedas',table(['Aplicativo','Tipo','Quantidade / saldo','Moeda','Valor de 1 ponto ou regra','Valor total estimado dos pontos'],wallets.map(w=>row(w.app,w.kind==='points'?'Pontos':w.kind==='crypto'?'Criptomoeda':'Saldo',num(w.balance),w.currency,w.kind==='points'?(['ratioBRL','ratioUSD','ratioCrypto'].includes(w.pointValueMode)?num(w.pointReferencePoints)+' pontos = '+(w.pointValueMode==='ratioCrypto'?num(w.pointReferenceBRL)+' '+(w.pointReferenceCrypto||'BTC'):w.pointValueMode==='ratioUSD'?'US$ '+num(w.pointReferenceBRL):brl(w.pointReferenceBRL)):w.pointValueMode==='BRL'?brl(w.pointUnitValue)+' por ponto':w.pointValueMode==='USD'?'US$ '+num(w.pointUnitValue)+' por ponto':num(w.pointsPerUsd)+' pontos por US$ 1'):'—',pointTotal(w)))),'O valor total dos pontos é calculado com a regra manual de cada aplicativo. Para regras em dólares ou criptomoedas, aparece o total na moeda definida (sem conversão automática no relatório). Estes valores externos não representam dinheiro já resgatado, saldo bancário ou preços de mercado em tempo real.');
  sections+=section('Investimentos e trade',table(['Ativo','Quantidade','Preço de compra','Moeda','Observações'],investments.map(i=>row(i.symbol||i.ticker||i.name||i.asset||'—',num(i.quantity??i.qty),num(i.buyPrice??i.price??i.averagePrice),(i.currency||({'PETR4':'BRL','VALE3':'BRL','ITUB4':'BRL','MGLU3':'BRL','BOVA11':'BRL','IVVB11':'BRL'}[i.symbol]||'USD')),i.notes||''))),'Carteira manual: confira os preços e a moeda no cadastro. Este relatório não atualiza cotações nem garante rendimento.');
  sections+=section('Preferências e observações','<p>Meta de economia mensal: <strong>'+esc(brl(db.settings?.monthlySavingsTarget))+'</strong>. Mês selecionado: '+esc(period(month))+'.</p><p>Relatório gerado localmente no navegador, sem envio dos seus dados para servidores. Os valores refletem somente os registros disponíveis neste navegador no momento da geração.</p>');
  return {html:sections,created};

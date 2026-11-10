@@ -170,3 +170,14 @@ Os cadastros antigos de pontos continuam com seu modo de cálculo anterior. O ba
 ### Impressão: valor total dos pontos
 
 Em `assets/js/relatorio-impressao.js`, edite a função `pointTotal(w)` para modificar as regras de cálculo do total de pontos, ou a seção `Apps, pontos e criptomoedas` para alterar as colunas impressas. A regra é individual de cada aplicativo e utiliza os campos salvos pelo cadastro.
+
+## Equivalência personalizada em dólar e criptomoeda (nova)
+
+Na tela **Apps e moedas → Adicionar app ou saldo → Pontos / recompensas**, escolha o modo:
+- **Equivalência personalizada em R$**: exemplo 3.615 pontos = R$ 15.
+- **Equivalência personalizada em US$**: exemplo 3.615 pontos = US$ 15.
+- **Equivalência personalizada em criptomoeda**: escolha BTC, ETH, SOL, USDT, USDC, BNB, DOGE, ADA, XRP ou LTC e informe a quantidade equivalente.
+
+Para editar: procure `ratioBRL`, `ratioUSD`, `ratioCrypto` no `app.js`. O campo `pointReferenceBRL` mantém o nome histórico para preservar backups antigos, mas agora guarda o **valor equivalente na moeda escolhida**. `pointReferenceCrypto` armazena o símbolo, quando aplicável. Para modificar a impressão, edite `assets/js/relatorio-impressao.js` (`pointTotal` e seção `Apps, pontos e criptomoedas`).
+
+A equivalência é cadastrada manualmente; o valor estimado em reais das regras em dólar ou cripto exige cotação externa disponível. O relatório impresso mostra o valor na moeda da regra sem depender de conexão. Esses valores não representam dinheiro resgatado.

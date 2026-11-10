@@ -84,7 +84,7 @@
       const kind=['money','points','crypto'].includes(w.kind)?w.kind:'money';
       const currency=kind==='crypto'&&Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:kind==='money'&&FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL';
       const number = v => typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e12?precise(v):0;
-      return {id:clean(w.id||uid()),app:clean(w.app).slice(0,100),kind,currency,balance:number(w.balance),pointsPerUsd:number(w.pointsPerUsd),pointValueMode:['legacy','BRL','USD','ratioBRL'].includes(w.pointValueMode)?w.pointValueMode:'legacy',pointUnitValue:number(w.pointUnitValue),pointReferencePoints:number(w.pointReferencePoints),pointReferenceBRL:number(w.pointReferenceBRL),manualUsdPrice:number(w.manualUsdPrice)};
+      return {id:clean(w.id||uid()),app:clean(w.app).slice(0,100),kind,currency,balance:number(w.balance),pointsPerUsd:number(w.pointsPerUsd),pointValueMode:['legacy','BRL','USD','ratioBRL','ratioUSD','ratioCrypto'].includes(w.pointValueMode)?w.pointValueMode:'legacy',pointUnitValue:number(w.pointUnitValue),pointReferencePoints:number(w.pointReferencePoints),pointReferenceBRL:number(w.pointReferenceBRL),pointReferenceCrypto:Object.hasOwn(CRYPTO_ASSETS,w.pointReferenceCrypto)?w.pointReferenceCrypto:'BTC',manualUsdPrice:number(w.manualUsdPrice)};
     });
     const investments=window.KaykoInvestimentos.normalizeRecords(candidate.investments);
     const budgets = {};
@@ -502,11 +502,12 @@
        +field('balance','Quantidade ou saldo *',input('balance','number',w.balance,true,'min="0" max="1000000000000" step="any" placeholder="Ex.: 250.5"'))
        +field('currency','Moeda do saldo',select('currency',FIAT_CURRENCIES.map(c=>[c,c]),FIAT_CURRENCIES.includes(w.currency)?w.currency:'BRL'))
        +field('crypto','Criptomoeda',select('crypto',Object.keys(CRYPTO_ASSETS).map(c=>[c,`${c} · ${CRYPTO_ASSETS[c][0]}`]),Object.hasOwn(CRYPTO_ASSETS,w.currency)?w.currency:'BTC'))
-       +field('pointValueMode','Como definir o valor dos pontos?',select('pointValueMode',[['ratioBRL','Equivalência personalizada em R$ (ex.: 3615 pontos = R$ 15)'],['BRL','Valor de 1 ponto em reais (R$)'],['USD','Valor de 1 ponto em dólares (US$)'],['legacy','Quantidade de pontos para US$ 1']],w.pointValueMode||'legacy'),true,'Escolha a forma usada pelo aplicativo. O valor é definido manualmente por você.')
+       +field('pointValueMode','Como definir o valor dos pontos?',select('pointValueMode',[['ratioBRL','Equivalência personalizada em R$ (ex.: 3615 pontos = R$ 15)'],['ratioUSD','Equivalência personalizada em US$ (ex.: 3615 pontos = US$ 15)'],['ratioCrypto','Equivalência personalizada em criptomoeda (ex.: 3615 pontos = 0,0001 BTC)'],['BRL','Valor de 1 ponto em reais (R$)'],['USD','Valor de 1 ponto em dólares (US$)'],['legacy','Quantidade de pontos para US$ 1']],w.pointValueMode||'legacy'),true,'Escolha a forma usada pelo aplicativo. O valor é definido manualmente por você.')
        +field('pointUnitValue','Quanto vale 1 ponto?',input('pointUnitValue','number',w.pointUnitValue||'',false,'min="0" max="1000000000000" step="any" placeholder="Ex.: 0.01"'),true,'Ex.: 1 ponto = R$ 0,01 ou US$ 0,01, conforme a moeda escolhida.')
        +field('pointReferencePoints','Quantidade de pontos de referência',input('pointReferencePoints','number',w.pointReferencePoints||3615,false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 3615"'),true,'Ex.: 3615 pontos valem R$ 15. Pode definir outro valor para cada app.')
        +field('pointReferenceBRL','Valor equivalente em reais (R$)',input('pointReferenceBRL','number',w.pointReferenceBRL||15,false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 15"'),true,'O cálculo divide o valor em reais pelos pontos de referência e multiplica pela quantidade cadastrada.')
        +field('pointsPerUsd','Quantos pontos equivalem a US$ 1?',input('pointsPerUsd','number',w.pointsPerUsd||'',false,'min="0.00000001" max="1000000000000" step="any" placeholder="Ex.: 1000"'),true,'Exemplo: 1000 pontos = US$ 1. Deixe vazio se o app não informar taxa de troca.')
+       +field('pointReferenceCrypto','Criptomoeda da equivalência',select('pointReferenceCrypto',Object.keys(CRYPTO_ASSETS).map(c=>[c,`${c} · ${CRYPTO_ASSETS[c][0]}`]),w.pointReferenceCrypto||'BTC'),true,'Escolha a criptomoeda que o aplicativo oferece em troca dos pontos.')
        +'<p class="field-help wide" id="walletPointsPreview" aria-live="polite"></p>'
        +field('manualUsdPrice','Cotação manual (US$ por 1 unidade)',input('manualUsdPrice','number',w.manualUsdPrice||'',false,'min="0" max="1000000000000" step="any" placeholder="Opcional"'),true,'Se preenchida, substitui a cotação automática da criptomoeda.');
       const refresh=refreshWalletFields;
@@ -516,6 +517,7 @@
       $('#form-pointUnitValue').addEventListener('input',refreshWalletPointPreview);
       $('#form-pointReferencePoints').addEventListener('input',refreshWalletPointPreview);
       $('#form-pointReferenceBRL').addEventListener('input',refreshWalletPointPreview);
+      $('#form-pointReferenceCrypto').addEventListener('change',refreshWalletPointPreview);
       $('#form-pointsPerUsd').addEventListener('input',refreshWalletPointPreview);
       refresh();
     } else if(kind==='category') {
@@ -538,8 +540,10 @@
     const pointMode=$('#form-pointValueMode').value;
     $('#form-pointsPerUsd').closest('.form-field').hidden=type!=='points'||pointMode!=='legacy';
     $('#form-pointUnitValue').closest('.form-field').hidden=type!=='points'||!['BRL','USD'].includes(pointMode);
-    $('#form-pointReferencePoints').closest('.form-field').hidden=type!=='points'||pointMode!=='ratioBRL';
-    $('#form-pointReferenceBRL').closest('.form-field').hidden=type!=='points'||pointMode!=='ratioBRL';
+    $('#form-pointReferencePoints').closest('.form-field').hidden=type!=='points'||!['ratioBRL','ratioUSD','ratioCrypto'].includes(pointMode);
+    $('#form-pointReferenceBRL').closest('.form-field').hidden=type!=='points'||!['ratioBRL','ratioUSD','ratioCrypto'].includes(pointMode);
+    $('#form-pointReferenceCrypto').closest('.form-field').hidden=type!=='points'||pointMode!=='ratioCrypto';
+    $('#form-pointReferenceBRL').closest('.form-field').querySelector('label').textContent=pointMode==='ratioUSD'?'Valor equivalente em dólares (US$)':pointMode==='ratioCrypto'?'Quantidade equivalente de criptomoeda':'Valor equivalente em reais (R$)';
     $('#form-pointUnitValue').closest('.form-field').querySelector('label').textContent=pointMode==='BRL'?'Valor de 1 ponto em reais (R$)':'Valor de 1 ponto em dólares (US$)';
     $('#form-manualUsdPrice').closest('.form-field').hidden=type!=='crypto';
     $('#form-balance').closest('.form-field').querySelector('label').textContent=type==='points'?'Quantidade de pontos *':type==='crypto'?'Quantidade de criptomoedas *':'Saldo no aplicativo *';
@@ -552,9 +556,11 @@
     const refPoints=Number($('#form-pointReferencePoints')?.value||0),refBRL=Number($('#form-pointReferenceBRL')?.value||0);
     if($('#form-kind').value!=='points'){node.hidden=true;return;}
     node.hidden=false;
-    const result=mode==='ratioBRL'?(refPoints>0&&refBRL>0?points*refBRL/refPoints:null):mode==='legacy'?(perUsd>0?points/perUsd:null):(unit>0?points*unit:null);
+    const ratioMode=['ratioBRL','ratioUSD','ratioCrypto'].includes(mode);
+    const result=ratioMode?(refPoints>0&&refBRL>0?points*refBRL/refPoints:null):mode==='legacy'?(perUsd>0?points/perUsd:null):(unit>0?points*unit:null);
     const curr=['BRL','ratioBRL'].includes(mode)?'BRL':'USD';
-    node.textContent=result===null?'Informe a taxa manual para visualizar o valor estimado.':`Total estimado: ${cashLabel(result,curr)} (${amountLabel(points)} pontos).`;
+    const crypto=$('#form-pointReferenceCrypto').value;
+    node.textContent=result===null?'Informe a taxa manual para visualizar o valor estimado.':`Total estimado: ${mode==='ratioCrypto'?amountLabel(result)+' '+crypto:cashLabel(result,curr)} (${amountLabel(points)} pontos).`;
   }
   function refreshCofferForm(c) {
     const wood=$('#form-mode').value==='woodbox';
@@ -609,8 +615,9 @@
       if(!['money','points','crypto'].includes(kind)||(kind==='money'&&!FIAT_CURRENCIES.includes(currency))||(kind==='crypto'&&!Object.hasOwn(CRYPTO_ASSETS,currency))){notify('Selecione um tipo de saldo válido.',true);return;}
       if(kind==='points'&&fields.pointValueMode==='legacy'&&fields.pointsPerUsd?.trim()&&rate<=0){notify('Informe uma taxa de pontos maior que zero.',true);return;}
       if(kind==='points'&&['BRL','USD'].includes(fields.pointValueMode)&&fields.pointUnitValue?.trim()&&pointUnit<=0){notify('O valor por ponto deve ser maior que zero.',true);return;}
-      if(kind==='points'&&fields.pointValueMode==='ratioBRL'&&!(refPoints>0&&refBRL>0)){notify('Informe uma quantidade de pontos e um valor equivalente em reais maiores que zero.',true);return;}
-      const record={id:id||uid(),app:fields.app.trim().slice(0,100),kind,currency,balance:precise(balance),pointsPerUsd:kind==='points'?precise(rate):0,pointValueMode:kind==='points'?fields.pointValueMode:'legacy',pointUnitValue:kind==='points'?precise(pointUnit):0,pointReferencePoints:kind==='points'?precise(refPoints):0,pointReferenceBRL:kind==='points'?precise(refBRL):0,manualUsdPrice:kind==='crypto'?precise(manual):0};
+      if(kind==='points'&&['ratioBRL','ratioUSD','ratioCrypto'].includes(fields.pointValueMode)&&!(refPoints>0&&refBRL>0)){notify('Informe uma quantidade de pontos e um valor equivalente maiores que zero.',true);return;}
+      if(kind==='points'&&fields.pointValueMode==='ratioCrypto'&&!Object.hasOwn(CRYPTO_ASSETS,fields.pointReferenceCrypto)){notify('Escolha uma criptomoeda válida.',true);return;}
+      const record={id:id||uid(),app:fields.app.trim().slice(0,100),kind,currency,balance:precise(balance),pointsPerUsd:kind==='points'?precise(rate):0,pointValueMode:kind==='points'?fields.pointValueMode:'legacy',pointUnitValue:kind==='points'?precise(pointUnit):0,pointReferencePoints:kind==='points'?precise(refPoints):0,pointReferenceBRL:kind==='points'?precise(refBRL):0,pointReferenceCrypto:kind==='points'?fields.pointReferenceCrypto:'BTC',manualUsdPrice:kind==='crypto'?precise(manual):0};
       if(id)db.wallets=db.wallets.map(w=>w.id===id?record:w);else db.wallets.push(record);
     }else if(kind==='category'){
       const name=fields.name?.trim().replace(/\s+/g,' ').slice(0,60);
@@ -908,6 +915,18 @@
       if(w.pointValueMode==='ratioBRL'){
         return w.pointReferencePoints>0&&w.pointReferenceBRL>0?{value:w.balance*w.pointReferenceBRL/w.pointReferencePoints,detail:`${amountLabel(w.pointReferencePoints)} pontos = ${cashLabel(w.pointReferenceBRL,'BRL')} · equivalência manual`,source:'Pontos'}:{value:null,detail:'Defina a equivalência dos pontos em reais.',source:'Pontos'};
       }
+      if(w.pointValueMode==='ratioUSD'||w.pointValueMode==='ratioCrypto'){
+        if(!(w.pointReferencePoints>0&&w.pointReferenceBRL>0))return {value:null,detail:'Defina a equivalência personalizada.',source:'Pontos'};
+        const total=w.balance*w.pointReferenceBRL/w.pointReferencePoints;
+        if(w.pointValueMode==='ratioUSD'){
+          const quote=await fiatRate('USD','BRL');
+          return {value:total*quote.rate,detail:`${amountLabel(w.pointReferencePoints)} pontos = ${cashLabel(w.pointReferenceBRL,'USD')} · total ≈ ${cashLabel(total,'USD')}; câmbio ${displayQuoteDate(quote.date)}`,source:'Pontos'};
+        }
+        const symbol=w.pointReferenceCrypto||'BTC';
+        const crypto=await cryptoPrice(symbol);
+        const exchange=await fiatRate('USD','BRL');
+        return {value:total*crypto.rate*exchange.rate,detail:`${amountLabel(w.pointReferencePoints)} pontos = ${amountLabel(w.pointReferenceBRL)} ${symbol} · total ≈ ${amountLabel(total)} ${symbol}; cotação ${displayQuoteDate(crypto.date)}`,source:'Pontos'};
+      }
       if(w.pointValueMode==='BRL'){
         return w.pointUnitValue>0?{value:w.balance*w.pointUnitValue,detail:`1 ponto = ${cashLabel(w.pointUnitValue,'BRL')} · taxa manual`,source:'Pontos'}:{value:null,detail:'Informe o valor de 1 ponto em reais.',source:'Pontos'};
       }
@@ -930,7 +949,7 @@
     $('#walletCards').innerHTML=count?db.wallets.map(w=>{
       const label=w.kind==='money'?'Saldo em moeda':w.kind==='points'?'Recompensas e pontos':'Criptomoeda';
       const display=w.kind==='money'?cashLabel(w.balance,w.currency):`${amountLabel(w.balance)} ${w.kind==='points'?'pontos':w.currency}`;
-      const desc=w.kind==='points'?(w.pointValueMode==='ratioBRL'?(w.pointReferencePoints&&w.pointReferenceBRL?`${amountLabel(w.pointReferencePoints)} pontos = ${cashLabel(w.pointReferenceBRL,'BRL')}`:'Sem equivalência cadastrada'):w.pointValueMode==='BRL'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'BRL')}`:'Sem taxa cadastrada'):w.pointValueMode==='USD'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'USD')}`:'Sem taxa cadastrada'):(w.pointsPerUsd?`1 USD = ${amountLabel(w.pointsPerUsd)} pontos`:'Sem taxa de conversão cadastrada')):w.kind==='crypto'?(w.manualUsdPrice?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}`:'Preço de mercado sujeito a atualização'):`Moeda: ${w.currency}`;
+      const desc=w.kind==='points'?(['ratioBRL','ratioUSD','ratioCrypto'].includes(w.pointValueMode)?(w.pointReferencePoints&&w.pointReferenceBRL?`${amountLabel(w.pointReferencePoints)} pontos = ${w.pointValueMode==='ratioCrypto'?amountLabel(w.pointReferenceBRL)+' '+(w.pointReferenceCrypto||'BTC'):cashLabel(w.pointReferenceBRL,w.pointValueMode==='ratioUSD'?'USD':'BRL')}`:'Sem equivalência cadastrada'):w.pointValueMode==='BRL'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'BRL')}`:'Sem taxa cadastrada'):w.pointValueMode==='USD'?(w.pointUnitValue?`1 ponto = ${cashLabel(w.pointUnitValue,'USD')}`:'Sem taxa cadastrada'):(w.pointsPerUsd?`1 USD = ${amountLabel(w.pointsPerUsd)} pontos`:'Sem taxa de conversão cadastrada')):w.kind==='crypto'?(w.manualUsdPrice?`Cotação manual: US$ ${amountLabel(w.manualUsdPrice)} por ${w.currency}`:'Preço de mercado sujeito a atualização'):`Moeda: ${w.currency}`;
       return `<article class="wallet-card"><div class="wallet-card-top"><span class="wallet-type">${esc(label)}</span><span class="wallet-symbol">${w.kind==='money'?'💵':w.kind==='points'?'✦':'₿'}</span></div><h3>${esc(w.app)}</h3><strong class="wallet-balance">${esc(display)}</strong><p class="wallet-description">${esc(desc)}</p><div class="wallet-estimate" data-wallet-estimate="${esc(w.id)}">Calculando estimativa…</div><div class="wallet-actions"><button class="button button-outline" data-edit-wallet="${esc(w.id)}" type="button">Editar</button><button class="action-small danger" data-delete-wallet="${esc(w.id)}" type="button" aria-label="Excluir saldo do app ${esc(w.app)}">Excluir</button></div></article>`;
     }).join(''):'<div class="panel empty-state wallet-empty"><span class="empty-symbol">◈</span>Você ainda não cadastrou saldos de outros aplicativos.<br>Adicione sua primeira conta de pontos, moedas ou cripto.</div>';
     if(count)void refreshWalletValuations(token,[...db.wallets]);
