@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#080b18" />
+  <meta name="description" content="Este projeto foi arquivado e partiu para outra galáxia." />
+  <title>Projeto Arquivado | Missão Encerrada</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+    :root {color-scheme:dark;--bg:#080b18;--accent:#8bfde5;--muted:#a4b0c9;--white:#f0f7ff}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;}body{background:var(--bg);color:var(--white);font-family:'DM Sans',system-ui,sans-serif;overflow-x:hidden}
+    .universe{position:relative;isolation:isolate;display:grid;place-items:center;min-height:100svh;padding:35px 18px 54px;overflow:hidden;background:radial-gradient(ellipse at 50% 49%,#162449 0%,#0c122a 36%,#080b18 77%)}
+    .universe::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 24% 19%,#6259c522,transparent 31%),radial-gradient(circle at 79% 78%,#0ba8b819,transparent 30%)}
+    .stars,.stars::before,.stars::after{position:absolute;inset:0;pointer-events:none;background-repeat:repeat;opacity:.8}
+    .stars{background-image:radial-gradient(1px 1px at 20px 30px,#fff 99%,transparent),radial-gradient(1px 1px at 140px 120px,#c5d3ff 99%,transparent),radial-gradient(2px 2px at 230px 60px,#c2fff4 99%,transparent);background-size:280px 190px;animation:twinkle 7s ease-in-out infinite alternate}
+    .stars::before{content:"";background-image:radial-gradient(1px 1px at 80px 105px,#fff 99%,transparent),radial-gradient(2px 2px at 280px 20px,#d2c5ff 99%,transparent);background-size:350px 240px;opacity:.65;transform:rotate(8deg) scale(1.1)}
+    .stars::after{content:"";background-image:radial-gradient(1px 1px at 115px 180px,#bffaff 99%,transparent);background-size:220px 240px;opacity:.4}
+    .shell{z-index:1;width:min(100%,740px);display:flex;align-items:center;flex-direction:column;text-align:center}
+    .label{display:inline-flex;align-items:center;gap:9px;border:1px solid #9afeea4a;border-radius:30px;padding:8px 15px;background:#73f8df0d;color:#a5ffe8;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+    .label::before{content:"";width:7px;height:7px;border-radius:50%;background:#8bfde5;box-shadow:0 0 12px #8bfde5;animation:twinkle 1.6s infinite alternate}
+    .scene{position:relative;width:min(100%,530px);height:315px;margin:10px auto -1px;filter:drop-shadow(0 0 18px #4fe0cd16)}
+    .planet{position:absolute;left:5%;top:39%;width:74px;height:74px;border-radius:50%;background:linear-gradient(135deg,#5866bb,#2b245a);box-shadow:inset -20px -15px 18px #0d143a;opacity:.67}
+    .planet::after{content:"";position:absolute;inset:18px -19px;border:9px solid #8b7be080;border-radius:50%;transform:rotate(-24deg)}
+    .orbit{position:absolute;left:50%;top:55%;width:370px;height:155px;transform:translate(-50%,-50%) rotate(-18deg);border:1px dashed #8dfae01a;border-radius:50%}
+    .ufo{position:absolute;z-index:5;left:50%;top:31px;width:225px;height:115px;transform:translateX(-50%);animation:hover 4s ease-in-out infinite;transform-origin:center}
+    .ufo .dome{position:absolute;left:64px;top:7px;width:96px;height:69px;border-radius:90px 90px 16px 16px;background:linear-gradient(135deg,#b5f7ff,#7e82d7 42%,#343976 95%);border:2px solid #c6fbff94;box-shadow:inset -8px -4px 15px #292d71,0 0 23px #62cfff33}
+    .ufo .dome::after{content:"";position:absolute;left:17px;top:12px;width:23px;height:10px;border-radius:50%;background:#ffffff92;transform:rotate(-35deg);filter:blur(2px)}
+    .ufo .disc{position:absolute;top:56px;left:5px;width:215px;height:61px;border-radius:50%;background:linear-gradient(#e7f5ff 3%,#8093c2 27%,#343d80 56%,#1e2654 90%);box-shadow:0 7px 18px #0104128c,0 0 25px #6efee244;border:1px solid #a5d8fa}
+    .ufo .disc::before{content:"";position:absolute;left:22px;right:22px;top:13px;height:28px;border-radius:50%;border-top:2px solid #efffff60}
+    .lights{position:absolute;top:86px;left:32px;width:161px;display:flex;justify-content:space-around}
+    .lights i{width:10px;height:10px;background:#87ffe0;border-radius:50%;box-shadow:0 0 10px 3px #64ffdc88;animation:blink 1.1s infinite alternate}
+    .lights i:nth-child(even){animation-delay:.55s;background:#e1b2ff;box-shadow:0 0 10px #d097ff}
+    .beam{position:absolute;z-index:2;left:50%;top:128px;width:230px;height:169px;transform:translateX(-50%);clip-path:polygon(44% 0,56% 0,100% 100%,0 100%);background:linear-gradient(90deg,transparent,#79fbe52b 20%,#9dffdc75 50%,#79fbe52b 80%,transparent);filter:drop-shadow(0 0 13px #8bffdf);animation:beam 3.8s ease-in-out infinite}
+    .ground{position:absolute;left:50%;bottom:5px;width:310px;height:42px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,#83fce44f,transparent 70%);filter:blur(7px)}
+    .crate{position:absolute;z-index:3;left:50%;bottom:42px;width:43px;height:43px;transform:translateX(-50%) rotate(-6deg);background:linear-gradient(135deg,#84ffdb,#37b7b4);border:2px solid #b9fff2;border-radius:6px;box-shadow:0 0 28px #50efd17d;animation:abduct 6s ease-in-out infinite}
+    .crate::before{content:"";position:absolute;left:12px;top:7px;width:14px;height:18px;border:3px solid #155f71;border-top:0;border-radius:0 0 4px 4px}
+    .crate::after{content:"";position:absolute;left:13px;top:3px;width:12px;height:9px;border:3px solid #155f71;border-bottom:0;border-radius:8px 8px 0 0}
+    h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:clamp(2.4rem,8vw,4.6rem);font-weight:700;letter-spacing:-.065em;line-height:1.06;margin:13px 0 13px}
+    h1 span{color:var(--accent);text-shadow:0 0 37px #7effd350}
+    .description{max-width:530px;font-size:clamp(15px,2.8vw,18px);line-height:1.65;color:var(--muted);margin:0 auto}
+    .status{margin-top:22px;color:#b8c7e0;font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+    .action{margin-top:26px;display:inline-flex;align-items:center;justify-content:center;gap:11px;cursor:pointer;background:#a0ffe7;color:#061a25;border:0;border-radius:15px;padding:15px 23px;font:700 14px 'DM Sans',system-ui,sans-serif;box-shadow:0 9px 29px #74f6ce22;transition:transform .2s,background .2s,box-shadow .2s}
+    .action:hover{transform:translateY(-3px);background:#c4fff0;box-shadow:0 12px 36px #74f6ce40}.action:focus-visible{outline:3px solid white;outline-offset:4px}
+    .action svg{width:18px;height:18px}
+    .services{width:min(100%,520px);margin-top:28px;text-align:left}
+    .services-heading{font-family:'Space Grotesk',system-ui,sans-serif;text-align:center;font-size:18px;margin:0 0 13px}
+    .services-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .service-card{border:1px solid #a1ffe438;border-radius:17px;padding:19px 16px;background:linear-gradient(145deg,#192b49c7,#111a32bb);transition:transform .2s,border-color .2s}
+    .service-card:hover{transform:translateY(-4px);border-color:#8bfde5}
+    .service-icon{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#8bfde51a;color:#8bfde5;margin-bottom:10px}
+    .service-icon svg{width:22px;height:22px}
+    .service-card h3{font:700 15px 'Space Grotesk',system-ui,sans-serif;margin:0 0 6px}
+    .service-card p{color:var(--muted);font-size:12px;line-height:1.55;margin:0}
+    .contacts{margin-top:27px;width:min(100%,480px);padding:18px 19px 19px;border:1px solid #95ffe432;border-radius:20px;background:linear-gradient(145deg,#182847b8,#10172cbb);box-shadow:0 14px 45px #02061455}
+    .contacts-title{font-family:'Space Grotesk',system-ui,sans-serif;font-size:17px;font-weight:700;margin:0 0 5px}
+    .contacts-caption{font-size:12px;color:var(--muted);margin:0 0 15px}
+    .contact-links{display:flex;flex-wrap:wrap;justify-content:center;gap:9px}
+    .contact-link{display:inline-flex;align-items:center;gap:7px;padding:11px 13px;border:1px solid #a1ffe43f;border-radius:11px;background:#a0ffe70e;color:#e4fff8;text-decoration:none;font-size:13px;font-weight:700;transition:transform .2s,border-color .2s,background .2s}
+    .contact-link:hover{transform:translateY(-3px);border-color:#a0ffe7;background:#a0ffe726}
+    .contact-link:focus-visible{outline:3px solid #a0ffe7;outline-offset:3px}
+    .contact-link svg{width:17px;height:17px;flex-shrink:0}
+    footer{margin-top:25px;text-align:center;font-size:11px;letter-spacing:.12em;color:#8492b2}
+    .restart .ufo,.restart .beam,.restart .crate{animation:none!important}
+    @keyframes hover{0%,100%{transform:translate(-50%,0) rotate(-2deg)}50%{transform:translate(-50%,-12px) rotate(2deg)}}
+    @keyframes abduct{0%,14%{transform:translate(-50%,0) rotate(-6deg);opacity:1}49%{transform:translate(-50%,-92px) rotate(10deg);opacity:1}65%,78%{transform:translate(-50%,-145px) rotate(24deg);opacity:0}79%{transform:translate(-50%,0);opacity:0}100%{transform:translate(-50%,0) rotate(-6deg);opacity:1}}
+    @keyframes beam{0%,100%{opacity:.35}30%,70%{opacity:1}}
+    @keyframes twinkle{from{opacity:.42}to{opacity:1}}
+    @keyframes blink{to{opacity:.35;transform:scale(.75)}}
+    @media(max-width:390px){.services-grid{grid-template-columns:1fr}}
+    @media(max-width:520px){.scene{height:280px;transform:scale(.9);margin:-5px 0 -14px}.orbit{width:300px}.planet{left:2%}.status{font-size:10px}.contacts{padding:16px 12px}.contact-links{gap:8px}.contact-link{flex:1 1 125px;justify-content:center}footer{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <main class="universe">
+    <div class="stars" aria-hidden="true"></div>
+    <div class="shell">
+      <div class="label">Comunicado intergaláctico</div>
+      <div class="scene" id="scene" role="img" aria-label="Nave alienígena voando e abduzindo uma pequena caixa por um feixe de luz">
+        <div class="planet"></div><div class="orbit"></div><div class="beam"></div>
+        <div class="ufo"><div class="dome"></div><div class="disc"></div><div class="lights"><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="crate"></div><div class="ground"></div>
+      </div>
+      <h1>PROJETO <span>ARQUIVADO</span></h1>
+      <p class="description">Uma nave alienígena passou por aqui e levou este projeto para outra galáxia. Esta página não está mais disponível para visitação. 👽</p>
+      <div class="status" aria-live="polite" id="status">● Transmissão encerrada · Setor 404</div>
+      <button type="button" class="action" id="replay" aria-label="Repetir animação de abdução">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 3 7"/><path d="M3 4v7h7"/></svg>
+        Repetir abdução
+      </button>
+      <section class="services" aria-label="Serviços oferecidos por Dev Kayko">
+        <h2 class="services-heading">🚀 Meus serviços</h2>
+        <div class="services-grid">
+          <article class="service-card">
+            <div class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6zM18 12h.01"/></svg></div>
+            <h3>Gráfica rápida</h3>
+            <p>Artes digitais, cartões de visita, banners, adesivos e materiais gráficos para divulgar seu negócio.</p>
+          </article>
+          <article class="service-card">
+            <div class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 8h20m-13 4-3 3 3 3m6-6 3 3-3 3"/></svg></div>
+            <h3>Desenvolvimento de Sistemas e Websites</h3>
+            <p>Sites profissionais, apresentações e vitrines digitais para negócios.</p>
+          </article>
+        </div>
+      </section>
+      <section class="contacts" aria-label="Contato do desenvolvedor">
+        <h2 class="contacts-title">Contato · Dev Kayko 👽</h2>
+        <p class="contacts-caption">Quer falar comigo? Escolha um canal de comunicação.</p>
+        <nav class="contact-links" aria-label="Redes sociais e contato">
+          <a class="contact-link" href="https://wa.me/5511930758262" target="_blank" rel="noopener noreferrer" aria-label="Conversar com Dev Kayko pelo WhatsApp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.4 7.5L3 20l1.2-4.7a8.5 8.5 0 1 1 16.3-3.8Z"/><path d="M8.2 8.2c.3-.6.7-.7 1-.2l1 1.6c.2.4 0 .7-.3 1.1 1 1.8 2.1 2.8 3.9 3.5.4-.4.7-.7 1.1-.5l1.6.8c.5.3.4.7 0 1.1-.8.9-2 .9-3.3.4-2.6-1-4.5-3-5.7-5.4-.5-1.1-.3-1.9.7-2.4Z"/></svg>
+            WhatsApp
+          </a>
+          <a class="contact-link" href="https://www.instagram.com/alien_okyak/?hl=pt-br" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram do Dev Kayko">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".9" fill="currentColor" stroke="none"/></svg>
+            Instagram
+          </a>
+          <a class="contact-link" href="https://www.youtube.com/@Alien_Okyak" target="_blank" rel="noopener noreferrer" aria-label="Abrir canal do YouTube Alien Okyak">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3V9Z"/></svg>
+            YouTube
+          </a>
+        </nav>
+      </section>
+    </div>
+    <footer>DEV KAYKO · ARQUIVO INTERGALÁCTICO © <span id="year"></span></footer>
+  </main>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    const scene = document.getElementById('scene');
+    const button = document.getElementById('replay');
+    const status = document.getElementById('status');
+    button.addEventListener('click', () => {
+      scene.classList.add('restart');
+      void scene.offsetWidth;
+      scene.classList.remove('restart');
+      status.textContent = '● Abdução reiniciada · Sinal alienígena detectado';
+    });
+  </script>
+</body>
+</html>
